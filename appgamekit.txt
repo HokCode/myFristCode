@@ -1,0 +1,91 @@
+sprite准备工作：
+	LoadImage
+		load美术资源，如png、jpg。通常与CreateSprite结合使用
+		Image = agk::LoadImage(img)
+	CreateSprite
+		sprite = agk::CreateSprite(Image)
+
+sprite属性设置
+	SetSpriteAngle
+		设置sprite角度
+		
+	SetSpriteX
+	SetSpriteY
+		设置sprite坐标
+	
+	SetSpriteSize
+		设置sprite大小
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
