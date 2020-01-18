@@ -26,49 +26,7 @@ public:
 		}
 	}
 
-	bool set(int index, T value)
-	{
-		bool ret = ((0 <= index) && (index < this->capacity()));
-		
-		if( ret )
-		{
-			m_space[index] = value;
-		}
-		else
-		{
-			throw("set(),out of space!");
-		}
-
-		return ret;
-	}
-
-	bool get(int index, T& value)
-	{
-		bool ret = ((0 <= index) && (index < this->capacity()));
-		
-		if( ret )
-		{
-			value = m_space[index];
-		}
-		else
-		{
-			throw("get(),out of space!");
-		}
-
-		return ret;
-	}
-
-	T& operator[] (int index)
-	{
-		return m_space[index];
-	}
-
-	T operator[] (int index) const
-	{
-		return (const_cast<staticArray<T,N>&>(*this)[index]);
-	}
-
-	int capacity()
+	int length()
 	{
 		return N;
 	}
