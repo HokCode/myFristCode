@@ -67,7 +67,9 @@ int main()
 		cout << m[i] << endl;
 	}
 
-	m = l;
+	char reversed[16];
+
+	cout << ">>>" << sizeof(reversed) << endl;
 
 	// cout << "File:	" << __FILE__;
 	// cout << "Line:	" << __LINE__;
