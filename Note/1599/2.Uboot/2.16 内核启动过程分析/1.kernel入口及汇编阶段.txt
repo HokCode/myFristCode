@@ -1,0 +1,128 @@
+1.内核分析的准备工作
+	
+	(1)删除无用文件
+		
+		1.删除kernel/arch下其他架构的文件。
+		
+	(2)建立SI工程并解析
+		
+	
+	(3)Makefile分析
+		
+		1.主Makefile刚开始定义了kernel的内核版本号。
+
+		2.在make编译内核时，可通过命令行给内核makefile传参。如：
+		make O=xxx，可指定不在源代码目录下编译，到另外一个文件夹编译。
+
+		3.顶层Makefile中定义了2个变量：
+		
+			ARCH：决定当前编译的路径。如果ARCH=arm，将来会在源码目录下操作arch/arm目录。
+			
+			CROSS_COMPILE：用来指定交叉编译工具链的路径和前缀。
+
+			分析：
+			两者都可通过make ARCH=xxx的方式传参。不需要改动makefile。
+
+			传参例子：
+			make O=/tmp/mykernel ARCH=arm CROSS_COMPILE=/usr/local/arm/arm-2009q3/bin/arm-none-linux-gnueabi-
+
+		4.ARCH ?= arm
+	
+			如果make时没有传ARCH参数，执行ARCH = arm。
+
+	(4)链接脚本
+		
+		1.分析链接脚本的目的是找到整个程序的entry。
+
+		2.kernel的链接脚本并不是直接提供的，而是提供了一个汇编文件vmlinux.lds.S，编译时会编译这个汇编文件的得到链接脚本vmlinux.lds。
+
+		3.vmlinux.lds.S位于arch/arm/kernel目录下。
+
+		4.在kernel链接脚本本身不能提供条件编译的需求。把vmlinux.lds写成汇编格式，让汇编器处理的时候可以把条件编译也处理了。
+
+	(5)找到程序入口
+		
+		1.从vmlinux.lds中找到entry。由ENTRY(stext)可知，入口符号为stext。
+
+		2.发现stext位于arch/arm/kernel目录下的head.S(head-nommu.S也有)。
+
+		3.head.S是启动了MMU情况下的kernel启动文件(相当于uboot的start.S)。
+
+2.head.S文件分析
+	
+	(1)内核运行的物理地址与虚拟地址
+		
+		KERNEL_RAM_VADDR，virtual address。虚拟地址。
+		KERNEL_RAM_PADDR，physical address。物理地址。
+
+		#define KERNEL_RAM_VADDR	(PAGE_OFFSET + TEXT_OFFSET)
+		PAGE_OFFSET值为0xC0000000
+		TEXT_OFFSET值为0x00008000
+		
+		#define KERNEL_RAM_PADDR	(PHYS_OFFSET + TEXT_OFFSET)
+		PHYS_OFFSET值为0x30000000
+		TEXT_OFFSET值为0x00008000
+		
+	(2)内核真正的入口(Kernel startup entry point.)
+		
+		__HEAD
+		定义了后面的代码属于段名为.head.text的段。
+		
+		ENTRY(stext)
+		内核的真正入口处。
+
+	(3)内核启动条件(开头注释部分)	
+	
+		1.内核的起始部分代码是被解码代码调用的。uboot启动内核后实际运行的是zImage前面那段解压代码，zImage内核解压后，再去运行真正的内核入口。
+
+		2.内核启动时有一定的先决条件的，这个条件由启动内核的bootloader(这里是uboot)来满足。
+
+		3.ARM体系中，函数调用时实际是通过寄存器传参的(函数调用时传参分为寄存器传参和栈内存传参)。所以uboot中的: 
+
+			the kernel (0,machid,bd->bi_boot_params)
+			执行内核时，实际把0放入r0中，machid放入r1中，bd->bi_boot_params放入了r2中。这样刚好满足了kernel的启动条件。
+
+		4.kernel启动时MMU是关闭的，因此硬件上使用的是物理地址。但内核(zImage)只能被链接到一个虚拟地址，因此内核运行时前段head.S中开启MMU之前的代码必须是位置无关码，使用的是物理地址。
+		
+3.内核启动汇编阶段(head.S)
+	
+	(1)__lookup_processor_type(第82行)
+		
+		1.从cp15协处理器的c0寄存器中读取硬件的CPU	ID号后，用此函数进行合法性检验。如果合法才继续启动；如果失败转向__error_p函数(死循环)。
+		
+		2.内核会维护一个自己支持的CPU ID号码数组供检验使用。
+		
+		3.这样也可以提高内核安全性。
+	
+	(2)__lookup_machine_type(第85行)
+		
+		1.校验机器码的函数。与CPU ID检验类似。
+		
+	(3)__vet_atags(第88行)	
+		
+		1.校验uboot给内核传的参数ATAGS格式是否正确。这里指的是uboot通过tag给内核传的参数(如：memtag内存分布、bootargs)。
+		
+		2.如果传参格式不正确会导致启动失败。
+		
+	(4)__create_page_tables(第89行)	
+		
+		1.函数用于建立页表，位于head.S第219行。
+		
+		2.linux内核本身被链接在虚拟地址中，因此kernel希望尽快建立页表并启动MMU进入虚拟地址工作状态。但kernel开始工作后页表体系非常复杂。
+		
+		3.kernel建立页表分为2步：
+			第一步：kernel先建立一个段式页表(与uboot一样，页表以1MB为单位来区分)，4GB空间需要4096个页表项，每个页表项4字节，因此一共需要16KB内存做页表；
+		
+			第二步：再建立一个细页表(4kb为单位的细页表)，启用新的细页表并废除第一步建立的段式映射页表。
+		
+		4.内核启动早期建立段式页表(粗页表)供早期使用，后期建立细页表供后期使用。
+		
+	(5)__switch_data(第98行)
+		
+		1.存放函数指针等元素的数组。
+		
+		2.执行__mmap_switched函数：复制.data段(数据段)，清除bss段。即构建C语言运行环境；保存cpu id号、机器码、tag传参首地址。
+		
+		3.最后b start_kernel跳转到c语言运行阶段。
+		
+		

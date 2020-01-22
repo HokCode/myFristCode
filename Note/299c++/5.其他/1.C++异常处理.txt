@@ -1,0 +1,96 @@
+63.C语言的异常处理	
+	
+	(1)异常与bug的区别
+		
+		1.异常时程序运行时可预料的执行分支。
+		
+		2.Bug时程序中不可预期的错误。
+
+	(2)setjum和longjum
+		
+		int setjum(jmp_buf env)
+			1.将当前上下文保存在jup_buf结构体中。
+		
+		void longjum(jmp_buf env, int val)
+			1.从jmp_buf结构体中回复setjmp()保存的上下文。
+			2.最终从setjmp函数调用点返回，返回值为val。
+
+		缺陷：简单粗暴，会破坏结构的特性。所以工程中很少见。
+
+64.c++中的异常处理1
+	
+	(1)try和catch
+		
+		1.try处理正常代码逻辑；catch处理异常情况。
+
+		2.try代码中会通过throw抛出异常信息，catch抓住异常后进行处理。
+
+		3.未被处理的异常会顺着函数调用栈向上传播，直到被处理为止。否则程序将停止执行。
+
+		4.使用例子：
+			
+			try
+			{
+				//text
+				throw 0;
+			}
+			catch(...)
+			{
+				cout<< "text" <<endl;
+			}
+
+	(2)catch(...)
+		
+		1.(...)代表catch用于处理所有类型的异常，通常作为最后出场的catch语句块。
+
+		2.任何异常都只能被catch捕获一次。异常会至上而下严格地匹配每个catch语句处理类型，不会类型转换。如：
+			
+			try
+			{
+				throw 1;
+			}
+			
+			catch(int c)
+			{
+			}
+			catch(char c)
+			{
+			}
+			catch(...)
+			{
+			}
+
+65.c++中的异常处理2
+	
+	(1)catch语句中可以抛出异常
+		
+		1.为了解决工程开发中统一异常类型的问题。
+		
+		try
+		{
+			throw 1;
+		}
+		catch( int i )
+		{
+			throw "text";
+		}
+
+	(2)用自定义类描述异常
+		
+		1.可以把异常的信息整合到一个类中。
+		
+		2.因为父子类间的赋值兼容性原则依然存在，所以父类的catch分支要放在最后。
+
+	(3)c++标准库中的异常类族
+		
+		1.标准库中的异常都是从exception类派生的。
+		
+		2.exception类的两个主要分支：
+			
+			-logic_error
+				常用语程序中的可避免逻辑错误。如：out_of_range，头文件为<stdexcept>。
+			
+			-runtime_error
+				常用于程序中无法避免的恶性错误。
+			
+

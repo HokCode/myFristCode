@@ -1,0 +1,253 @@
+19.Qt中的标准对话框1
+		
+	(1)Qt提供的可复用对话框类型
+		
+		1.用于提示重要的程序信息。
+		
+		2.可复用对话框全部继承自QDialog类。
+
+		3.标准对话框都遵循相同的使用方式。
+
+	(2)消息对话框 (QMessageBox)
+		
+		1.应用程序最常见的界面元素。
+			
+		2.主要用途：
+			
+			-为用户提示重要信息。
+			
+			-强制用户进行操作。
+
+		3.使用方式
+			
+			QMessageBox msg(this);
+			
+			msg.setIcon(QMessageBox::Information);
+				设置图标。
+				
+				QMessageBox::Question		询问框	
+				QMessageBox::information	信息框		
+				QMessageBox::warning		警告框	
+				QMessageBox::critical		错误框	
+			
+			msg.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel)
+				设置按钮。
+
+			msg.exec() == QMessageBox::Ok
+				判断用户是否点击确定按钮。
+
+
+	(3)文件对话框 (QFileDialog)
+
+		1.常用于以下形式
+			
+			用于获取系统中的文件路径。
+			
+			-Open Mode
+				应用程序中需要用户打开一个外部的文件。
+			
+			-Save Mode
+				应用程序中需要将当前内容存储于用户指定的外部文件中。
+
+		2.使用方式
+
+			fd.exec() == QFileDialog::Accepted
+				//判断是否按了确定。
+			
+			fd.setAcceptMode(QFileDialog::AccceptOpen)
+				AccceptOpen：打开模式
+				AccceptSave：保存模式	
+			
+			fd.setFileMode(QFileDialog::ExistingFile)
+				ExistingFile：打开一个文件
+				ExistingFiles：打开多个文件
+
+			QStringList fs = fd.selectedFiles();
+				链表fs记录选择的文件名。
+
+		3.文件类型过滤器
+			
+			-在文件对话框中可以通过文件后缀定义过滤器。
+			
+			-过滤器定义规则：
+			
+				显示名(*.后缀1 *.后缀2)
+				
+			例：
+				
+			dlg.setFilters("Text(*.txt)");
+				只显示txt类型的文件。
+
+		4.QFileDialog中的实用函数
+			
+			-QFileDialog::getOpenFileName
+			-QFileDialog::getOpenFileNames
+			-QFileDialog::getSaveFileName
+
+20.Qt中的标准对话框2
+	
+颜色对话框(QColorDialog)
+		
+	(1)颜色对话框
+	
+		1.Qt中提供了预定义的颜色对话框。
+
+		2.用于提供指定颜色的对话框部件。
+
+	(2)使用方式	
+		
+		dig.setCurrentColor(Qt::red);	//初始颜色
+			
+			参数中也可用QColor类直接指定RGB，如：
+			QColor(100, 111, 0)
+
+		dig.selectedcolor();		//用户选择的颜色
+		
+	(3)实用函数
+		
+		QColorDialog::getColor
+
+	(4)QColor类同时支持多种颜色表示方式
+		
+		-RGB：以红、绿、蓝为基准的三色模型。
+		
+		-HSV：以色调、饱和度、明度为基准的六角椎体模型。
+		
+		-CMYK：以天蓝、品红、黄色、黑为基准的全彩印刷色彩模型。
+
+输入对话框(QInputDialog)		
+
+	(1)输入对话框
+		
+		1.用于需要临时进行数据输入的场合。
+
+	(2)使用方式	
+		
+		dlg.setLabelText("")
+			输入提示性字符串。
+		
+		dlg.setInputMode(QInputDialog::IntInput)
+			IntInput：输入整形数。
+			TextInput：输入文本字符串。
+			DoubleInput：输入浮点数。			
+						
+		dlg.setIntMaximum();
+		dlg.setIntMinimum();
+			设定输入范围(整形数)。
+		
+		dlg.intValue();
+			得到用户输入的整形数据。
+		dlg.textValue();
+			得到用户输入的文本字符串数据。
+	
+	(3)实用函数
+		
+		QInputDialog::getDouble
+		QInputDialog::getInt
+		QInputDialog::getItem
+		QInputDialog::getText
+	
+21.Qt中的标准对话框3
+
+字体对话框(QFontDialog类)
+	
+	(1)字体对话框
+	
+		1.用于提供选择字体的对话框部件。
+
+	(2)使用方式	
+		
+		
+		dlg.setCurrentFont( 
+					QFont("Courier New",10,QFont::Bold)	
+							)//初始字体
+
+		dlg.selectedFont()	//用户选择的字体
+
+	(3)使用函数
+		
+		QFontDialog::getFont。
+
+进度对话框(QProgressDialog类)
+	
+	(1)进度对话框
+
+		1.用于显示进度信息。
+		
+		2.用于需要用户等待的场合。
+
+	(2)使用方式
+		
+		dlg.setLabelText("Downloading update...");
+			//显示字符
+			
+		dlg.setMinimum(0);
+		dlg.setMaximum(100);	//设置最大值最小值。
+
+		dlg.setValue(35);	//设置当前值。
+
+打印对话框(QPrintDialog类)
+	
+	(1)打印对话框	
+		
+		1.用于设置打印相关的参数信息。
+		
+	(2)使用方式
+		
+		if( dlg.exe() == QPrintDialog::Acccept )
+		{
+			QPrinter* p = dlg.printer();
+		}
+		
+		1.QPrinter类是打印设备及其参数的封装。
+		
+		2.QPrinter类封装了系统中打印设备的驱动接口。
+		
+		3.QPrinter以相同方式使用系统中的不同打印设备。
+
+		4.验证方式：
+			
+			QTextDocument td;	//用于表示文本文档的类。
+
+			td.setPlainText("Printer test");
+			
+			td.setHtml("<h1>print html test</h1>");	//td为html文档。
+			
+			p->setOutputFileName("D:\\test.pdf");
+				//设置虚拟打印机。
+			
+			td.print(p);	
+				//提供打印设备及其参数的封装p。
+
+	小结：
+		
+		-GUI界面部件产生数据对象。
+		
+		-业务逻辑中的其他对象使用数据对象。
+		
+		-GUI界面与业务逻辑通过数据对象连接。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,133 @@
+1.start_armboot函数简介
+	
+	(1)是一个很长的函数
+
+		1.在uboot/lib_arm/board.c的第444行~第908行结束。
+		2.函数中还调用了其他函数。
+		3.一个函数组成uboot第二阶段。
+		
+	(2)uboot第二阶段工作
+		
+		1.uboot第一阶段初始化了SoC内部的一些部件。
+		
+		2.宏观来讲，uboot第二阶段就是初始化SoC的外部硬件(如iNand、网卡芯片等)、uboot本身的命令环境变量等。初始化完后进入uboot命令行待命。
+
+	(3)uboot完结于内核启动
+
+		1.uboot启动完成后进入倒数阶段，如果用户没有干涉，则会执行bootcmd进入自动启动内核流程，uboot工作完结。
+
+		2.uboot的命令行本质是一个死循环。
+
+2.start_armboot函数解析1
+	
+	(1)init_fnc_t(start_armboot第446行)
+	
+		1.typedef int (init_fnc_t) (void)，这是一个函数类型。
+
+		2.**init_fnc_ptr是一个二重指针，这是一个指向函数指针数组的指针。
+
+	(2)DECLEAR_GLOBAL_DATA_PTR(board.c第70行)
+		
+		#define DECLARE_GLOBAL_DATA_PTR		register volatile gd_t *gd asm ("r8")
+		
+		1.定义了一个全局变量gd，指针类型，占4个字节；volatile修饰表示可变；register修饰表示推荐此变量放在寄存器中。asm("r8")表示gd要放在寄存器r8中。
+
+		2.总结就是定义了一个放在寄存器r8中的全局变量，名为gd，类型是指向gd_t类型变量的指针。
+
+		3.gd本质是一个结构体，里面的存放着uboot常用的所有全局变量。放在register中可提升效率。
+
+		4.gd_t定义在include/asm-arm/global_data.h中。(board.c第469行)
+
+			gd_t内有一个*bd，是一个指向bd_t类型的指针。bd指向bd_info结构体，bd_info是一个开发板的板级信息结构体，里面的变量是硬件相关的参数。如：波特率、IP地址、机器码、DDR内存。
+
+3.内存使用排布
+	
+	(1)分配内存
+		
+		1.gd和bd需要内存，但是当前内存没有被人管理(还是裸机，没有操作系统管理内存)。大片的DDR内存随意使用，用内存地址访问即可。使用内存要遵循节省、紧凑排布的原则。
+
+	(2)内存排布	
+			
+		1.uboot区	CFG_UBOOT_BASE-xx(长度为uboot的实际长度)
+		2.堆区		长度为CFG_MALLOC_LEN，实际为912KB
+		3.栈区		长度为CFG_STACK_SIZE，实际为512KB
+		4.gd		长度为sizeof(gd_t)，实际36字节
+		5.bd		长度为sizeof(bd_t)，实际44字节
+
+		gd_base(board.c第465行)，gd在ddr的基地址。
+
+		gd = (gd_t*)gd_base(board.c第469行)
+			把地址强制转换成gd_t类型，在用gd指向它。(实例化)
+
+		gd->bd = (bd_t*)((char*)gd - sizeof(bd_t))，(board.c第478行)
+			算出gd->bd的内存空间，并把bd指向它。
+
+		__asm__ __volatile__("": : :"memory");
+			C语言中内嵌汇编。作用是内存间隔，防止高版本gcc的过度优化。
+		
+4.start_armboot函数解析2
+
+	(1)for循环执行init_sequence(board.c第483行)
+		
+		1.init_sequence是一个函数指针数组。这些函数指针指向的类型是init_fnc_t类型，即int()(void)类型。
+		
+		2.init_sequence在定义同时就给了初始化，初始化的函数指针都是一些函数名。
+
+		3.for循环的目的就是遍历整个函数指针数组。
+
+		4.通过(*init_fnc_ptr)()逐一调用函数，如果在遍历中有一个函数返回值不等于0则hang()挂起。可见uboot启动过程中初始化板级硬件时不能出任何错误。
+
+		5.init_sequence中的函数，都是board级别的(CPU外)各种硬件初始化。
+	
+	init_sequence内的函数介绍
+	
+	(2)cpu_init
+		
+		1.cpu内部初始化函数。因为cpu内部初始化已经在start.S第一阶段完成了，所以这里面是空的。
+
+	(3)board_init
+		
+		1.继续使用宏定义DECLARE_GLOBAL_DATA_PTR；为了在后面使用gd方便，不用到处声明。
+	
+		2.CONFIG_DRIVER_DM9000，网卡初始化。这个宏是x210_sd.h中定义的，用于配置开发板网卡。
+
+		3.调用的dm9000_pre_init函数是对应的DM9000初始化函数。主要是网卡的GPIO和端口配置，不是驱动。因为移植的驱动是不需要改动的。
+
+5.start_armboot函数解析3
+		
+	board_init()中的第96~97行	
+	
+	(1)gd->bd->bi_arch_number = MACH_TYPE;
+			
+		分析：
+		1.bi_arch_number是board_info中的一个元素，是指开发板的机器码。即uboot给开发板定义的唯一编号。
+		2.机器码的作用就是在uboot和linux内核之间进行比对和适配。
+		3.嵌入式设备中每一个设备的硬件都是定制化的，不能通用，这导致硬件和软件不能随便适配使用。
+			
+		4.所以linux给每个开发板都有一个唯一编号(机器码)，uboot、linux内核中都有一个软件维护的机器码编号。三者对比机器码，对上了就启动。
+			
+		5.编号MACH_TYPE在x210_sd.h中定义，值为2456。将来开发板上移植的linux内核中的机器码也必须是2456。注意：uboot中配置的机器码，会作为uboot给linux内核传参的一部分。
+			
+		6.开发板的机器码理论上要向官方申请。但也可以自己编号，只要保证uboot和kernel中编号一致。
+		
+	(2)gd->bd->bi_boot_params = (PHYS_SDRAM_1+0x100);
+			
+		分析：
+		1.bi_boot_params是board_info另一个主要元素，表示uboot给linux kernel启动时传参的内存地址。
+			
+		2.uboot实现将准备好的传参(bootargs)放在内存的一个地址处，即bi_boot_params。uboot在启动内核时是通过寄存器(r0、r1、r2)直接传递参数的，bi_boot_params就是放在其中一个寄存器。内核会去对应内存地址读取bootargs。
+			
+		3.由x210_sd中可得，bi_boot_params的值为0x30000100。
+	
+	番外背景：DDR初始化
+		
+		1.这里的初始化DDR和汇编阶段lowlevel_init中初始化DDR是不同的。这里是软件结构中与DDR相关的属性配置、地址设置的初始化，是纯软件层面的初始化。
+		
+		2.软件层次初始化DDR是为了让uboot知道开发板上DDR内存的参数，如：DDR内存片数、每一片的起始地址、长度等。
+			思路一：程序员在移植uboot时，会在x210_sd.h中使用宏定义去配置处板子上DDR的信息，uboot通过代码读取对应硬件信息即可。
+			
+			思路二：uboot可通过代码读取硬件信息来得到DDR配置，无需程序配置。但uboot没有使用此方法，PC的BIOS采用此方法。
+	
+		3.x210_sd.h的499行~505行使用了标准的宏定义来配置DDR相关的参数。主要配置了：共几片DDR内存、每一片DDR的起始地址和长度。
+			
+		

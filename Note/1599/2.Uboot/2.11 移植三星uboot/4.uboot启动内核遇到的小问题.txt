@@ -1,0 +1,22 @@
+12.uboot启动内核分析
+	
+	(1)检查内核镜像zImage。
+		
+		1.使用其他已成功移植的uboot启动相同的zImage。
+		
+	(2)检查机器码
+		
+		1.配置文件smdkv210single.h中的MACH_TYPE宏。(103行)
+
+	(3)将串口编号改回串口2
+		
+		1.配置文件smdkv210single.h中的CONFIG_SERIALn宏(n=1、2、3..)。(147行)
+
+	(4)配置文件中宏是否完备
+		
+		1.如果内核仍没有启动，是smdkv210single.h中没有定义bootm传参需要的几个宏造成的。
+
+		CONFIG_SETUP_MEMORY_TAGS	保证uboot给内核传参时可以传内存信息。
+		CONFIG_CMDLINE_TAG			传递uboot的ubootargc给内核作启动信息。
+
+

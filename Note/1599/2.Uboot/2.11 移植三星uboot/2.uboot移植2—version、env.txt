@@ -1,0 +1,99 @@
+7.iNand的驱动问题解决
+	
+	(1)从现象定位问题
+	
+		1.导致错误的代码和需要修改的代码未必相同，但一定有关联。(类似DDR地址修改时遇到的第二个问题)
+		
+	(2)启动时打印出SD/MMC后，打印了错误信息：
+		
+		unrecognised EXT_CSD structure version 7
+		unrecognised EXT_CSD structure version 7
+		Card init fail!
+
+		1.在错误信息挑选中关键词(EXT_CSD)进行搜索，定位问题在drivers/mmc.c第818行。
+	
+			分析mmc_read_ext_csd函数：
+		
+			ext：extended。扩展。
+			csd：card specific data。sd卡特有信息寄存器。
+
+			第773行：
+			检验SD卡控制器版本。如果版本过低直接return 0。
+		
+			第797行：err = mmc_send_ext_csd(host, ext_csd);
+			读取SD/iNand的ext_csd寄存器的值。
+
+			第817行：
+			成功读取结果中拿到了卡的版本号信息后，在这行代码判断版本后是否大于5。如果大于5，打印错误信息并退出。
+
+			总结：开发板使用的iNand卡的版本号大于5，但uboot代码不处理版本号大于5的卡，因此报错了。
+
+	(3)解决问题方法：修改uboot代码
+		
+		1.第817行代码：if (ext_csd_struct > 5)改为if (ext_csd_struct > 8)。
+		
+		分析：先越过这个问题，把版本号判断最高设为8。
+
+	(4)SD卡和iNand的区别
+		
+		1.当前开发板上的iNand接在SD0上，外置SD卡接在SD2上。uboot中初始化的mmc是iNand，即uboot实际用的是SD0而不是SD2。
+			
+			在mmc.c第1158行的mmc_initialize函数中：
+			mmc = find_mmc_device(0)代码即uboot初始化iNand。改为1几时SD卡。
+
+		2.使用外置SD卡时，版本号报错问题不会出现。所以SD卡版本低，iNand的版本比较高。
+
+8.移植时的小问题修补
+	
+	(1)控制台串口更换为串口0
+		
+		1.uboot中默认使用串口2来做控制台输入输出。
+		
+		2.SoC一共有4个串口，开发板X210上用DB9接口引出了2个串口。
+
+		3.三星公司推荐使用串口2来作为调试串口，所以移植uboot和内核版本中都默认串口2为控制台串口。
+
+		4.通过修改uboot代码，让uboot工作在串口0的控制台下：
+			
+			分析：
+			(1)uboot中硬件初始化串口控制器的代码在lowlevel_init.S中的uart_asm_init中。
+	
+			(2)在include目录下s5pc110.h文件中的第1369~1379中，使用宏定义CONFIG_SERIALx(1~4)来控制ELFIN_UART_CONSOLE_BASE串口n(0~3)基地址的值。
+	
+			(3)在配置文件smdkv210single.h中第147行控制着CONFIG_SERIALx(1~4)宏定义。可通过修改x来修改使用的串口。						
+	
+	(2)修改默认网络地址设置
+		
+		1.在配置文件smdkv210single.h中第217行代码。
+
+			#define CONFIG_ETHADDR		00:40:5c:26:0a:5b
+			#define CONFIG_NETMASK      255.255.255.0
+			#define CONFIG_IPADDR		192.168.0.20
+			#define CONFIG_SERVERIP		192.168.0.10
+			#define CONFIG_GATEWAYIP	192.168.0.1
+		
+		2.修改后，如果启动时开发板的iNand的ENV没有环境变量，就会自动使用以上的环境变量。
+		
+		3.擦除iNand中的环境变量
+		
+			mmc write <device num> addr blk# cnt
+			mmc write 0 30000000 11# 32
+			device num：设备号码。0表示iNand；1表示SD卡。
+			addr：		内存里的地址。30000000。
+			blk#：		ENV分区的扇区号。11#(17扇区，十六进制表示为11)。
+			cnt：		多少个扇区。ENV分区为32扇区。
+		
+			分析：
+			命令表示：将DDR0x30000000开头的内容写入iNand的第17个扇区，写入长度为32个扇区(16KB)。
+		
+		
+
+	(3)修改行提示符
+		
+		命令行开头的：SMDKV210#
+		
+		1.在配置文件smdkv210single.h中第251行代码直接修改即可：			
+			#define CFG_PROMPT	 "HGJ210 # " 
+
+	
+

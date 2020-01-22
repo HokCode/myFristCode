@@ -1,0 +1,142 @@
+1.关于时间的概念
+	
+	(1)GMT时间
+		
+		1.格林尼治的当地时间。代表全球国际时间，用于描述全球重大事件。
+		
+	(2)UTC时间
+		
+		1.近些年越来越多使用UTC时间。
+
+	(3)计算机中与时间有关的部件	
+	
+		1.点时间：精确到某一点的时间，如：Fri, 17 Nov 2017 12:22。
+	
+		2.段时间：一段时间，如：3分钟、5小时。可认为段时间是两个点时间的差。
+		
+		3.定时器，timer。定时器定的时间是段时间。
+		
+		4.实时时钟(RTC)，real time clock。和点时间有关。
+		
+2.linux系统中的时间	
+
+	(1)jiffies的引入
+		
+		1.jiffies是linux内核中的一个全局变量，内核的最小时间长度单位。
+
+		2.jiffies变量开机时有一个基准值，内核每过一个节拍时间jiffies就会加1。所以jiffies可以记录开机后的总节拍时间。
+
+	(2)linux系统记录时间
+		
+		1.内核在开机启动时会读取RTC硬件获取基准时间。这个基准时间对应一个jiffies值(jiffies值对应的时间是基准时间减去1970-01-01 00:00:00 +0000(UTC))。
+
+		2.jiffies值对应的时间段+UTC时间即使当前时间。一个jiffies时间节拍的时间取决于操作系统的配置，现代linux系统一般是10ms或1ms。
+
+	(3)linux中时间相关的API与C库函数
+		
+		time(API)
+			返回自UTC时间到当前过去的秒数。
+			
+		ctime(C)
+			将time得到的秒数用固定格式输出。
+				
+		localtime(本地时间)
+		gmtime(国际时间)
+			将time得到的秒数变成一个struck time结构体。
+			
+		mktime
+			将struck time结构体还原回秒数。
+			
+		asctime
+			将struck time结构体用固定格式输出。
+		
+		strftime
+			将struck time结构体用可变化格式输出。
+		
+		gettimeofday
+			timeval和timezone两个结构体组成。返回时间和时区。
+		
+		settimeofday
+		
+3.时间相关API实战1
+		
+	(1)time
+		
+		time_t time(time_t *t);
+	
+		1.函数提供了两种方式输出秒数：用返回值输出；用指针参数输出。使用前者时，在参数中写入NULL即可。用%ld输出。
+
+		time_t tNow = -1;
+		time(&tNow)或tNow = time(NULL)
+
+	(2)ctime
+		
+		char *ctime(const time_t *timep);
+
+		1.返回固定格式的时间，考虑了计算机中的本地时间。
+
+	(3)gmtime和localtime
+		
+		struct tm *gmtime(const time_t *timep);
+		struct tm *localtime(const time_t *timep);
+
+		1.返回tm类型的结构体。
+		
+		struct tm {
+               int tm_sec;         /* seconds */
+               int tm_min;         /* minutes */
+               int tm_hour;        /* hours */
+               int tm_mday;        /* day of the month */
+               int tm_mon;         /* month */
+               int tm_year;        /* year */
+               int tm_wday;        /* day of the week */
+               int tm_yday;        /* day in the year */
+               int tm_isdst;       /* daylight saving time */
+           };
+
+		2.gmtime返回的小时数是以UTC时间的0时区为标准；localtime返回的小时数是以UTC时间的8时区为标准。
+
+4.时间相关API实战2
+
+	(1)mktime
+		
+		time_t mktime(struct tm *tm);
+
+		1.用于给操作系统设置时间。
+		
+	(2)asctime
+		
+		char *asctime(const struct tm *tm);
+		
+		1.将struct tm结构体用固定格式输出，效果与ctime相同。
+
+	(3)strftime	
+		
+		size_t strftime(char *s, size_t max, const char *format,const struct tm *tm);
+
+		1.用于用户自定义时间格式，输出的结果会填充到*s(buf)中。
+
+		2.format代表格式，在linux中有各种格式选择。farmat写成："%Y-%m-%d, %H-%M-%S."
+
+	(4)gettimeofday和settimeofday
+		
+		int gettimeofday(struct timeval *tv, struct timezone *tz);
+
+		int settimeofday(const struct timeval *tv, const struct timezone *tz);
+
+		1.struct timeval结构体的元素为秒和微秒。
+			
+		struct timeval {
+               time_t      tv_sec;     /* seconds */
+               suseconds_t tv_usec;    /* microseconds */
+           };
+
+		2.struct timezone结构体中元素有个显示相对于格林威治时间的tz_minuteswest，单位为分钟：
+		
+		struct timezone {
+               int tz_minuteswest;     /* minutes west of Greenwich */
+               int tz_dsttime;         /* type of DST correction */
+           };
+
+
+

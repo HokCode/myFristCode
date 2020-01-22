@@ -1,0 +1,135 @@
+5.内核启动的C语言阶段2
+	
+	(1)部分函数分析
+		
+		1.smp_setup_processor_id(main.c第544行)
+
+			smp，对称多处理器(多核心cpu)。
+
+		2.lockdep_init(main.c第550行)
+	
+			锁定依赖。一个内核调试模块，处理内核自旋锁死锁问题相关的。
+
+		3.cgroup_init_early(main.c第558行)
+
+			内核提供的一种处理进程组的技术。
+
+	(2)printk函数打印内核版本信息
+		
+		1.代码位于kernel/init/main.c的572行。
+
+		2.printk函数是内核中用来从console(控制台)打印信息的，类似于应用层编程中的printf。
+
+		3.printk用法与printf类似，但printk可以在参数最前面用一个宏来定义消息输出的级别。级别定义0~7(相应宏定义表示)分别代表8种输出的重要性级别，0最高，7最低。
+
+		5.linux的控制台监测信息的地方有一个信息过滤显示机制，控制台实际只会显示比定义的级别高的信息。
+
+		printk(KERN_NOTICE "%s", linux_banner);(main.c第572行)
+
+		linux_banner数组中的内容要到编译过的kernel目录下搜索，如：
+		
+			grep "UTS_RELEASE" * -nR			
+			搜索到结果：#define UTS_RELEASE "2.6.35.7"
+
+6.7.内核启动的C语言阶段3、4
+
+	setup_arch函数(main.c第573行)
+
+		1.CPU架构相关的一些创建过程(初始化)。
+
+		2.确定当前内核的机器(arch、machine)。CPU+开发板确定了一个硬件平台，当前配置的内核就在这个平台上可运行。机器码就可以看出对应硬件平台的编码。
+
+		3.当前内核支持的机器码、硬件平台相关的定义都在此函数中。
+
+	函数内部分析：
+
+		setup_processor
+		
+			1.查找当前cpu信息。打印cpu相关信息。
+		
+		setup_machine
+		
+			1.传入的参数是机器码编号，machine_arch_type(2456)。可在kernel目录下用grep命令查找。位于include/generated/mach-types.h的第32039~32050行。
+			
+			2.函数的作用是通过传入的机器码，找到机器码对应的machine_desc描述符，最后返回描述符的指针。
+
+			3.真正干活函数lookup_machine_type。其内部调用了__lookup_machine_type函数。
+			__lookup_machine_type函数：内核在建立的时候把各种CPU架构的信息组织成一个个的machine_desc结构体实例，并给其段属性为(.arch.info.init)，链接时会放在__arch_info_begin和__arch_info_begin之间。函数会按照机器码挨个遍历各个描述符。
+
+		基本的cmdline处理：char *from = default_command_line
+			
+			1.cmdline是指uboot给kernel传参时传递的命令行启动参数，即uboot的bootargs。传递的bootargs很重要，修改要谨慎。
+
+				default_command_line：是一个全局变量字符数组。
+
+			2.内核自己维护了一个默认的cmdline(在.config中配置)。uboot通过tag给kernel再传递一个cmdline，如果传递成功，会被优先使用。代码实现：
+
+			if (mdesc->fixup)
+			mdesc->fixup(mdesc, tags, &from, &meminfo);
+
+			strlcpy(boot_command_line, from, COMMAND_LINE_SIZE);
+
+			printk("$$$$$$$$$cmdline:%s\n",cmd_line);
+
+			注意：
+			传参确定后会被解析，解析后cmdline中的每一个设置项都会对内核启动产生影响。
+		
+8.内核启动的C语言阶段5
+	
+	(1)setup_command_line(main.c第575行)
+
+		1.处理和命令行参数cmdline有关的任务。
+
+	(2)parse_early_param(main.c第584行)
+
+		1.解析cmdline传参和其他传参。
+		
+		2.把cmdline的细节设置信息解析出来。如cmdline是：console=ttySAC2,115200，解析出一个字符串数组，数组中存放设置项目信息：
+
+			console=ttySAC2,115200：表示标准输出定位到串口2，波特率为115200。
+
+		3.这里只是进行了解析，但并没有执行。执行的代码在各自模块初始化的代码部分。
+
+	(3)其他函数
+		
+		trap_init
+			设置异常向量表
+
+		mm_init
+			内存管理模块初始化
+			
+		sched_init
+			调度系统初始化
+			
+		preempt_disable
+
+		
+		early_irq_init
+			中断系统初始化
+
+		early_irq_init、init_IRQ
+			中断初始化
+		
+		console_init
+			控制台初始化
+		
+		总结：start_kernel函数中调用了很多xx_init函数，完成了内核工作需要的模块初始化函数。初始化完成后内核就具有了可工作的条件。	
+	(4)最后的rest_init
+		
+		1.这个函数之前内核的基本工作已完成。
+		
+		2.剩下的重要初始化放在一个单独的函数中。
+
+start_kernel主要工作：
+	
+	1.打印信息
+	
+	2.调用内核工作需要的模块的初始化函数。(内存管理、调度系统、异常处理)
+
+	3.机器码架构的查找、执行架构相关的硬件初始化。
+	
+	4.uboot给内核的传参cmdline。
+
+
+
+

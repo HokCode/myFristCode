@@ -1,0 +1,116 @@
+4.nfs方式启动自制简易文件夹形式的rootfs
+	
+	(1)nfs概念
+		
+		1.nfs是一种网络通讯协议，由服务器和客户端构成。
+			
+		2.使用nfs作根文件系统的挂载。开发板中运行kernel作为nfs客户端(确认kernel是否支持nfs)，主机ubuntu中搭建nfs服务器。
+		3.服务器导出文件夹形式rootfs的目录，客户端挂载rootfs进而去启动系统。
+		
+	(2)主机搭建nfs服务器
+			
+		1.配置/etc/exports
+			
+			sudo vi /etc/exports
+				按照格式在文件末添加文件夹形式rootfs路径。
+			
+			chmod -R 777 + rootfs地址
+				把地址改成完全可访问权限。
+			
+			sudo showmount -e
+				显示旧的
+				
+			sudo exportfs -r
+				更新
+			
+			sudo showmount localhost -e
+				显示新的
+					
+			sudo /etc/init.d/nfs-kernel-server restart
+				重启nfs服务器
+		
+		2.挂载
+			
+		mount -t nfs -o nolock 192.168.1.141:+文件夹形式rootfs路径 /opt
+			
+			/opt：可以换成主机任一目录。
+			
+			出现rootfs中内容表示成功(linuxrc)。
+		
+		3.卸载
+			
+			不需要使用时要卸载rootfs，以防目录一直被占用。命令：
+			umount /opt/
+						
+	(3)配置内核以支持nfs作为rootfs
+		
+		1.内核需要支持nfs方式启动	
+		
+			根据文件使用make menuconfig配置。
+第一步：	
+配置网络部分，主要是使能CONFIG_IP_PNP以在第二步能够看到Root file system on NFS选项
+	Networking support 
+		Networking options 
+			TCP/IP networking
+					IP: kernel level autoconfiguration
+						[*] IP: DHCP support
+						[*] IP: BOOTP support
+
+第二步：						
+配置开启nfs服务
+File systems  --->	
+	Network File Systems  --->
+		<*> NFS client support 
+		[*] NFS client support for NFS version 3                                   
+		[*] NFS client support for the NFSv3 ACL protocol extension 
+		[*] NFS client support for NFS version 4 (EXPERIMENTAL) 
+		[*] NFS client support for NFSv4.1 (DEVELOPER ONLY) 
+		[*] Root file system on NFS  
+	
+		2.nfs方式启动的bootargs：
+		
+		root=/dev/nfs nfsroot=192.168.1.141:/home/hgj/rootfs/rootfs ip=192.168.1.88:192.168.1.141:192.168.1.1:255.255.255.0::eth0:off init=/linuxrc console=ttySAC2,115200
+
+		root格式解析：
+		
+		nfsroot=(ubuntu的ip地址):(rootfs目录) ip=(开发板ip):(ubuntu的ip地址):(网关):(子网掩码)::(网卡号):(关闭dhcp)
+		
+	总结：
+		
+		1.nfs方式启动相当于开发板上的内核远程挂载到主机上的rootfs。
+		
+		2.nfs方式不用制作rootfs镜像，用于产品开发的调试阶段。
+		
+5.linuxrc定义
+			
+	(1)/linuxrc是一个可执行的应用程序
+		
+		1./linuxrc属于应用层，与内核源码无关。
+		
+		2./linuxrc在开发板当前内核系统体系下是可执行的。在ARM SoC的linux系统下，应用程序使用arm-linux-gcc变异的。
+		
+		3./linuxrc是由内核直接调用执行的，用户无法去导出库文件的路径，所以只能静态链接。
+		
+	(2)/linuxrc执行时会引出用户界面
+		
+		1.操作系统启动并完成运行配置后，会提供一个用户界面(cmdline或GUI)。
+		
+		2.用户界面不是只有/linuxrc程序中负责，它有专门的应用程序。但用户界面是/linuxrc带出的。用户界面程序及其他程序就是进程2、3、4，所以进程1(init进程)是其他进程的祖宗。
+		
+	(3)/linuxrc负责系统启动后的配置
+		
+		1.操作系统启动后，需要配置后才能使用。
+		
+		2.应用层的配置(运行时配置，etc)是为了让操作系统使用起来更方便，更个性化。
+		
+	(4)/linuxrc在linux中一般是busybox
+	
+		1.busybox是一个C语言写出来的项目，里面包含了许多.c和.h文件，可以被配置编译成各个平台下可以运行的应用程序。
+
+		2.busybox用于在嵌入式环境下构建rootfs使用，即专门开发的init进程应用程序。
+		
+		3.busybox为当前系统提供了一整套的shell命令程序集。如：vi、ls等命令。vi、ls等常用命令都是一个个单独的应用程序，busybox是常用的shell命令集合到一起构成的shell命令包。
+		
+		
+		
+	

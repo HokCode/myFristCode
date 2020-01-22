@@ -1,0 +1,63 @@
+3.内核配置和编译
+
+	(1)确认Makefile
+		
+		1.检查交叉编译工具链设置。Makefile中搜索CROSS_COMPILE。
+
+		2.确认ARCH = arm。为了编译时找到arch/arm目录。
+
+	(2)make x210ii_qt_defconfig配置
+	
+		1.输入命令：make x210ii_qt_defconfig。最后打印出configuration written to .config，证明操作正确。
+
+		可能错误1：编译命令出错。
+		
+	(3)make menuconfig配置
+		
+		1.弹出一个界面，直接Exit即可。
+		
+		
+		可能错误1：ncurses库没装。
+		解决方案：超级用户下用apt-get install libncurses5-dev命令下载。
+
+		可能错误2：命令行界面太小。至少19行80列。
+
+	(4)make编译
+		
+		1.编译完成后得到的内核镜像不在源码目录下，在arch/arm/boot这个目录下，得到的镜像名是zImage。
+
+4.内核配置原理
+	
+	(1)烧写测试
+		1.在arch/arm/boot目录下找到zImage。搭建好网络环境后，在uboot下输入tftp 30008000 zImage进行烧写。
+		
+	(2)配置的关键是得到.config文件
+
+		1.源码默认是没有这个文件的。.开头说明是一个隐藏文件，需要输入命令ls -a来查看。
+		
+		2.配置的两个步骤就是为了得到合适的.config文件。
+		
+		3.其作用类似于uboot中的include/configs/x210_sd.h。内核在编译过程中会读取.config中的配置项，并用这些配置项去指导整个编译链接过程。
+		
+		4.其格式类似于脚本文件，其中的内容为：CONFIG_ARM=y的若干个配置项。可理解为定义了一个变量CONFIG_ARM，给其赋值y。
+		
+		5.由文件中配置项规模可知，linux内核可配置性有两三千个，是高度可配置的。所以发明了图形化的配置工具menuconfig，原理与手工书写/修改.config文件完成内核配置相同。
+		
+
+	(3)make xx_defconfig和make menuconfig相配合
+		
+		1.两步结合对.config文件中的两三千配置项作逐一配置。
+
+		第一步：make xx_defconfig
+			参考其他开发板(相同CPU)完成大部分配置项的配置。
+			
+		第二步：make menuconfig
+			针对自己开发板对配置项进行细节调整。可在menuconfig提供的图形界面中找到想要修改的配置项进行修改。
+			
+	(4)make xx_defconfig的工作
+		
+		1.命令相当于把arch/arm/configs/x210ii_qt_defconfig复制到当前目录下，并把其重命名为.config。
+
+			cp arch/arm/configs/x210ii_qt_defconfig .config
+
+	

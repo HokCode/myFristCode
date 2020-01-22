@@ -1,0 +1,100 @@
+1.uboot和内核的实质
+	
+	(1)uboot
+		
+		1.本质是一个复杂的裸机程序。一个简单的shell类似一个mini型uboot。
+
+	(2)内核本身也是一个"裸机程序"
+	
+		1.操作系统内核本身就是一个裸机程序。
+	
+		2.与uboot和普通裸机程序区别：
+			
+			a.操作系统运行起来后在软件上分为内核层和应用层。两层权限不同，内存访问和设备操作在管理上更精细。内核层可以随便访问各种硬件，应用层访问硬件和地址会有限制。
+			
+	(3)部署在SD卡中特定分区内
+		
+		1.一个完整的软件+硬件的嵌入式系统，未上电时(静止时)bootloader、kernel、rootfs等必须的软件都以镜像的形式存储在启动介质中(X210是iNand或SD卡)。
+		
+			a.静止时u-boot.bin、zImage、rootfs都存在SD卡中的各自分区中，这样在启动过程中uboot和kernel容易找到。uboot和kernel的分区表必须一致，和SD卡实际使用的分区也要一致。
+
+		2.运行时都是在DDR内存中运行的，与存储介质无关。
+	
+		3.第3种状态是动态过程，即从静止态到运行态的过程，也称启动过程。就是从SD卡逐步搬移到DDR内存，并运行启动代码进行相关硬件初始化和软件架构的建立，最终达到运行时的稳点状态。
+		
+	(4)运行时必须先加载到DDR中链接地址处
+		
+		1.内核与uboot类似，也有先被加载到链接地址处。uboot启动内核时会将内存从SD卡读取到DDR中(重定位过程)，放在内核的链接地址处。
+	
+	(5)内核启动需要必要的启动参数
+		
+		1.uboot是无条件启动的。
+		
+		2.内核启动需要依赖uboot提供的启动参数。
+
+2.启动内核第一步：加载内核到DDR中
+	
+	(0)uboot启动内核2步骤：
+		
+		1.将内核镜像从启动介质中加载到DDR中。
+		2.从DDR中启动内核镜像。
+
+	(1)静态内核镜像
+		
+		1.SD卡/iNand/Nand/NorFlash等：
+
+			a.常规启动时各种镜像都在SD卡中，因此uboot只需从SD卡的kernel分区读取读取内核镜像到DDR中即可。
+
+			b.使用uboot命令读取(如X210的iNand版本是movi命令)。
+			
+			SD卡启动方式加载ddr：
+				movi read kernel 0x30008000。
+				bootm 0x30008000。	
+			
+			注意：
+				kernel指的是uboot中kernel分区。有时也叫raw分区(原始分区)。
+		
+		2.tftp、nfs等网络下载方式从远端服务器获取镜像
+		
+			a.搭建好tftp服务器，ping通uboot与linux。
+		
+			b.把要烧录的镜像放入linux系统中tftpboot中。
+			
+			c.在uboot命令行输入：tftp 0x30008000 zImage-qt。
+			
+			uboot还支持远程启动。内核镜像放在主机服务器中，然后启动uboot时通过网络从服务器中下载。
+		
+		分析：
+			两种方法的最终结果都是将内核镜像放入DDR中特定地址。
+			sd卡启动一般用于产品出厂；tftp下载远程启动一般用于开发调试。
+			
+	(2)镜像放在DDR中
+		
+		1.内核一定要放在对应链接地址处。
+		
+		2.链接地址可在内核源代码的链接脚本或Makefile中去查找。X210中是0x30008000。
+
+3.zImage和uImage的区别联系
+		
+	(1)启动内核命令bootm
+		
+		1.bootm命令对应do_bootm函数。命令吗前加do_即可构成这个命令对应的函数。do_bootm函数在cmd_bootm.c文件下。
+		
+		2.do_bootm刚开始定义了一些变量，然后用宏条件编译执行了secureboot的代码(主要进行签名认证)和一些函数。
+  
+		3.CONFIG_ZIMAGE_BOOT宏用于控制进行条件编译的一段的代码，这段代码用于支持zImage格式的内核启动。
+
+	(2)vmlinuz、zImage、uImage
+		
+		1.uboot经过编译直接生成elf格式的可执行程序u-boot，类似windows下的exe格式。这种格式在操作系统下了直接执行，但不能用于烧录下载。使用arm-linux-objcopy工具可将u-boot加工成u-boot.bin。u-boot.bin成为镜像(image)
+
+		2.linux内核与uboot类似，编译后生成elf格式的可执行程序，叫vmlinux或vmlinuz，也叫原版内核elf文件。但是嵌入式系统部署时一般不是这个文件，也要用objcopy工具加工成镜像格式才能烧录。烧录镜像的文件称为Image。
+
+		3.objcopy工具能把78M的vmlinux加工成为7.5M的Image，大大缩减了大小，节省磁盘。但加工后的Image还不可以直接烧录到flash上启动执行。实际上Image还再次被压缩了一次，并在压缩后的文件头加了一段自压缩代码成为zImage。
+
+		4.uImage是由zImage加工得到的。内核生成zImage，uboot中的mkimage工具可以把zImage加工生成uImage供uboot启动。加工是指在zImage的文件头再加64字节的头信息。
+
+			a.工具mkimage在目录uboot/tools中。赋值到/usr/local/bin/目录下。
+		5.uboot启动支持uImage格式的内核镜像，但也可以支持zImage。x210_sd.h中的CONFIG_ZIMAGE_BOOT宏控制的条件编译下的代码就是实现支持zImage。所以有些uboot可支持zImage，但所有的uboot都支持uImage。
+
+			

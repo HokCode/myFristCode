@@ -1,0 +1,102 @@
+12.cmdline常用参数	
+	
+	(1)基本格式简介
+
+		console=ttySAC2,115200 root=/dev/mmcblk0p2 rw init=/linuxrc rootfstype=ext3
+
+		1.格式：项目名=项目值，项目之间用空格隔开。
+
+		2.整个cmdline会被内核启动解析，解析成一个个的字符串。这些字符串会被再次解析使用。
+
+	(2)root=/dev/xxx
+		
+		1.指定根文件系统位置。
+		
+		2.Nandflash是mtdblock2；iNand/sd是/dev/mmcblk0p2。
+		
+		3.如果是nfs的rootfs(网络文件系统)，是root=/dev/nfs加上nfsroot=xxx。
+		
+	(3)rootfstype=
+	
+		1.根文件系统的类型，一般是jffs2、yaffs2、ext3、ubi
+
+	(5)console=
+		
+		1.控制台信息声明，如：console=ttySAC2,115200。表示控制台使用串口2，波特率为115200。
+
+		2.一般内核启动时会根据console=这个项目来初始化硬件，重定位console到对应的串口上。
+	
+	(6)mem=
+		
+		1.表示当前系统的内存有多少。
+
+	(7)init=
+		
+		1.用于指定进程1的程序pathname，一般都为init=/linuxrc。
+
+13.内核中架构代码相关代码简介
+
+	(1)内核代码分为三大块
+	
+		1.arch，本目录下是cpu架构有关的代码。
+		
+		2.drivers，本目录下是硬件的驱动。
+	
+		3.其他，这部分代码都与硬件无关，系统移植和驱动开发时不需更改。
+
+	(2)架构相关的常用目录名叫及含义
+		
+		1.mach，machine architecture机器架构					
+			arch/arm目录下的一个mach-xx目录就表示一类个machine的定义，即当前内核支持多少种开发板。如：mach-s5pv210文件里是s5pv210这个主芯片的开发板machine。
+
+		2.plat，platform平台
+			
+			plat目录下都是SoC里一些硬件(内部外设)相关的代码。
+
+			内核中把SoC内部外设相关的硬件操作代码叫做平台设备驱动。
+
+		3.include
+
+			include目录中代码都是硬件相关的头文件(无通用性)。linux内核通用性的代码在根目录下的include。
+
+	(3)补充
+
+		1.内核中文件结构庞大、凌乱。不同版本的内核存放文件的位置不同。
+
+		2.头文件目录include有好几个，分别在不同目录。
+		
+		kernel/include 内核通用头文件
+		kernel/arch/asm/include	架构相关的头文件
+			kernel/arch/asm/include/asm
+				kernel/arch/asm/include/asm/mach
+		kernel/arch/asm/mach-s5pv210/include/mach
+		kernel/arch/asm/plat-s5p/include/plat
+			
+		3.内核中包含头文件时格式：
+			
+#include <linux/kernel.h>	kernel/include/linux/kernel.h	
+#include <asm/mach/arch.h>	kernel/arch/arm/include/asm/mach/arch.h
+#include <asm/setup.h>		kernel/arch/asm/include/asm/setup.h
+#include <plat/s5pv210.h>	kernel/arch/asm/plat-s5p/include/plat/
+
+		4.有些同名的头文件时有包含关系的，所以有时包含一个头文件时，可包含它的父文件。 
+
+
+
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	

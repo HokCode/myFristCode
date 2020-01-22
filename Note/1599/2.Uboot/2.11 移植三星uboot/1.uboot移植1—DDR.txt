@@ -1,0 +1,132 @@
+1.2.移植前的准备工作
+	
+	(1)专用工具sshsecureshell
+
+	(2)连接网卡
+		
+		1.电脑网线插入开发板，windows和虚拟机linux通过桥接模式相连，配置到无限网卡。
+
+	(3)搭建openssh环境
+		
+3.开始移植
+	
+	解压三星的uboot
+	
+	(1)检查交叉编译工具链是否正确	
+		
+		1.在Makefile文件中第147行
+
+		CROSS_COMPILE = /usr/local/arm/arm-2009q3/bin/arm-none-linux-gnueabi-
+		
+	(2)编译uboot
+		
+		1.配置时先使用make smdkv210single_config
+		
+			对应include/configs/smdkv210single.h头文件。
+		
+		2.配置完成后直接编译
+
+		3.编译后利用uboot/sd_fusing目录下sd_fusing.sh烧录
+
+			在sd_fusing下要重新mkbl1和sd_fdisk。
+
+	(3)代码分析&问题查找
+		
+		1.运行结果：串口无输出；开发板供电锁存成功。
+
+		分析：供电锁存成功，代表其之间的代码都是正确的。lowlevel_init.S在供电锁存代码之前，但串口没有打印"OK"。
+
+		结论：错误在供电锁存和lowlevel_init.S中串口打印"OK"代码之前。
+
+		2.建立Sourceinsight工程
+			
+			(1)在u-boot-samsung-dev/cpu/s5pc11x文件中找到start.S。
+			
+			(2)在u-boot-samsung-dev/board/samsung/smdkc110中找到lowlevel_int.S。
+		
+			分析：
+				
+				在lowlevel_init.S第99~104行中进行供电锁存设置。
+				在lowlevel_init.S第128行调用的uart_asm_init函数中，用汇编初始化串口，并打印"O"。
+
+			问题：
+				
+				在lowlevel_init.S第118行的PMIC_InitIp，作用是通过I2C初始化电源芯片PMIC，但是X210没有用PMIC芯片。所以要屏蔽这段代码。
+
+4.时钟和DDR大小的配置移植
+	
+	(1)修改打印版本号的名字
+		
+		1.在目录u-boot-samsung-dev/include/configs/smdkv210single.h中第519行更改宏定义CONFIG_IDENT_STRING。
+
+	(2)时钟部分的配置
+		
+		1.在lowlevel_init.S中第121行system_clock_init函数，因为SoC相同，所以代码部分不需要修改。但要改动寄存器写入的值，在配置文件smdkv210singel.h中(第282行)修改。
+
+	(3)DDR配置信息修改
+		
+		错误显示DRAM：1GB。
+		
+		(1)在uboot输入bdinfo命令打印信息，显示DRAM的bank0和bank1的size值都设置错误了。
+	
+		(2)通过md和mw命令测试内存，发现20000000和40000000开头的内存是可以使用的，说明代码中DDR初始化部分是正确的，只是size错了。
+
+		(3)修改配置文件smdkv210singel.h(第384行)的DRAM信息
+	
+			1.第469行SDRAM_BANK_SIZE改为10000000,256MB。
+
+			2.第473行PHYS_SDRAM_2硬编码为40000000。
+
+5.DDR地址的另外配置
+	
+	(1)目标：将DDR端口0地址配置为30000000开头。
+
+		1.把bank0设置在地址30000000处，可以与bank1可以连起来。这样就可以得到地址连续的542MB。
+
+	需要更改的内容：
+		
+	(2)DDR初始化参数更改
+	
+		1.DDR在lowlevel_init.S的代码部分是不需要修改的，因为其中只是对相应寄存器的值。只需要修改写入的值，其中的值都宏定义在include/config的相关头文件中。
+		
+		2.在smdkv210singel.h第408~422行的配置内容
+	
+			#define DMC0_MEMCONFIG_0 0x20E01323改为0x30F01323
+			
+			[31:24]把20改为30，地址改为0x30000000；			
+			[23:16]把E0改为F0，大小为0FFFFFFF。
+				
+	(3)移植时相关变量修改
+		
+		1.寄存器值修改后，代表硬件配置部分已经进行修改。然后要进行软件配置值。
+
+		2.在smdkv210singel.h第472开始的配置内容
+
+			#define PHYS_SDRAM_1 MEMORY_BASE_ADDRESS
+			修改宏MEMORY_BASE_ADDRESS。
+
+		3.虚拟地址映射表中的地址
+			
+			1.uboot中开启了MMU对内存进行了段式映射。在start.S第366行的_mmu_table_base顺藤摸瓜找到映射表。
+			
+			第568行内容：
+			本来的代码是把c0000000~d0000000这一段虚拟地址映射到内存20000000~30000000。
+			
+			所以把设置值.set __base,0x200改为.set __base,0x300后，
+			c0000000~d0000000这一段虚拟地址就会映射到内存30000000~40000000
+
+6.DDR地址的另外配置2
+	
+	现象：内存修改成功后，SD/MMC打印出来后没反应。
+	有关SD/MMC的函数在start_armboot的第478行配置。
+	
+	(1)找到并分析对应函数
+
+		1.优先考虑与内存有关的问题。硬件需要的地址都是物理地址，使能MMU后的地址都是虚拟地址，所以先查看虚拟地址和物理地址的转换函数。
+		
+		在smdkv210singel.h配置文件第82行的虚拟地址转成物理地址函数virt_to_phy_smdkc110函数：
+			return (addr - 0xc0000000 + 0x20000000);
+		改为：return (addr - 0xc0000000 + 0x30000000);
+
+
+

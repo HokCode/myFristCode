@@ -1,0 +1,171 @@
+1.uboot命令体系基础
+	
+	(1)uboot命令体实现代码
+		
+		1.在uboot/common/cmd_xxx.c中，有若干个.c文件、command.c和main.c命令体系有关。
+
+	(2)uboot命令
+		
+		1.每个uboot命令对应一个函数，这时uboot实现命令体系的一种思路和方法。
+		
+		2.命令对应的函数名为：do_命令。如:help的函数名为：do_help。位置在uboot/common/command.c的236行。
+
+	(3)命令参数以argc&argv传给函数
+		
+		1.uboot中有些命令支持传递参数。
+		
+		2.命令体系会把执行命令时的命令+参数以argc和argv的方式传递给执行命令的函数。
+
+			如：md 30000000 10
+				argc = 3
+				argv[0] = md, argv[1] = 30000000, argv[2] = 10
+
+2.uboot命令解析和执行过程分析
+	
+	(1)从main_loop说起
+		
+		1.uboot启动的第二阶段最后进入了一个for的死循环，循环体是main_loop。
+
+		2.main_loop是：获取命令、解析命令、执行命令的过程。其内部的run_command函数就是用来执行命令的函数。
+
+	(2)run_command函数详解
+		
+		1.控制台命令获取	
+		
+		2.解析命令			
+			(第1359行)parse_line函数把命令md 30000000 10解析成argv[0] = md, argv[1] = 30000000, argv[2] = 10。
+
+		3.查找命令	
+			(第1365行)find_cmd函数，去uboot的命令集合中搜索命令(如:argv[0])。
+
+			(第1365行)argc > cmdtp->maxargs，cmdtp->maxargs为命令能接受参数的最大量。
+		
+		4.执行命令
+			(第1395行)if ((cmdtp->cmd)(cmdtp, flag, argc, argv) !=0) {
+							rc = -1;}
+			最后用函数指针方式调用执行了对应函数。
+			
+3.uboot处理命令集1
+	
+	(1)uboot管理命令的方式
+
+		1.命令结构体cmd_tlb_t(command.h内第57行定义)
+			
+			结构体内包含命令所有信息
+			
+			typedef struct cmd_tbl_s	cmd_tbl_t;
+
+			name：命令名称，字符串格式。
+			maxargs：命令最多可以接收多少个参数。
+			repeatable：指示这个命令是否可重复执行。
+			cmd：函数指针。此指针指向命令对应的函数。
+			usagr：命令的短帮助信息。
+			help：命令的长帮助信息。可调配。
+			complete：自动补全信息(tab键)。可调配，uboot通常不需要。
+
+			总结：uboot的命令体系在工作时，一个命令对应一个cmd_tbl_t结构体。
+	
+	(2)uboot实现命令管理的思路
+		
+		1.填充一个结构体实例构成一个命令。
+		
+		2.给命令结构体实例附加特定段属性(用户自定义段)，链接时会将有该属性的内容链接在一起挨着排列，不会丢掉不会夹杂，但顺序是乱的。
+		
+		3.uboot重定位时将该段整体加载到DDR中。
+
+		4.段起始地址和结束地址决定了这些命令集的开始和结束地址。
+
+4.uboot实现命令管理详解
+	
+	(1)U_BOOT_CMD宏(定义在command.h第97行)
+		
+		定义代码：
+		#define U_BOOT_CMD(name,maxargs,rep,cmd,usage,help) \
+		cmd_tbl_t __u_boot_cmd_##name Struct_Section = {#name, maxargs, rep, cmd, usage, help}
+
+		其中Struct_Section也是宏
+		#define Struct_Section  __attribute__ ((unused,section (".u_boot_cmd")))
+		
+		分析：
+		1.Struct_Section宏对应代码含义：扩展语法。作用是给前面的变量赋予段属性。这里是赋予.u_boot_cmd段属性。
+		2.##符号含义：连字符。这里代表name与接收的name相同。为了命令的名字之间不冲突。#还可以把name变成字符串赋值给结构体中的元素。
+
+	(2)链接脚本
+		
+	(3)find_cmd函数详解(command.c第344行)
+		
+		1.函数的任务是从当前uboot的命令集中查找命令。
+	
+		len = ((p = strchr(cmd, '.')) == NULL) ? strlen (cmd) : (p - cmd);
+			计算命令长度，如果命令中没点，就算整个命令；如果有点，就算点前面的。
+		
+		2.查找命令的思路类似for循环遍历赎数组。
+
+5.uboot中添加自定义命令
+	
+	(1)在已有的.c文件中添加命令
+	
+		1.直接使用U_BOOT_CMD宏即可添加命令，注意给命令提供一个do_xxx的对应的函数。
+
+		2.添加完成后重新编译工程
+			make distclean
+			make x210_sd_config
+			make 
+
+	(2)自建c文件添加命令
+		
+		1.在uboot/common目录中新建cmd_xxx.c文件(对应的命令名叫xxx，对应的函数叫do_xxx)。在新的c文件要包含相关头文件。
+
+		2.在uboot/common/Makefile中添加xxx.o，
+		
+			COBJS-y += xxx.o
+			COBJS-$(CONFIG_CMD_CACHE) += cmd_cache.o
+			
+			分析：	
+			条件编译，如果-后面的宏定义CONFIG_CMD_CACHE为真，才执行添加。如果-后面是y，那就直接添加。
+			
+		3.重新编译工程。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

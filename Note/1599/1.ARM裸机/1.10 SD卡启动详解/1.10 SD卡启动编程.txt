@@ -1,0 +1,51 @@
+1.10
+	6.S5PV210的SD卡启动实战1
+		
+		(1)大于16KB的bin文件使用SD卡启动
+			
+			思路：将代码分为2部分，第一部分为小于等于16KB，第二部分为任意大小。iROM代码执行完成后从SD卡启动会自动读取BL1到SRAM中执行；BL1执行时负责初始化DDR，然后手动将BL2从SD卡copy到DDR中正确位置，然后从BL1远跳转到BL2中执行BL2。
+	
+			1.BL1任务：关看门狗、设置栈、开iCache、初始化DDR、从SD卡复制BL2到DDR中特定位置，跳转执行BL2。
+	
+			2.BL1在SD卡中必须从Block1开始(三星官方规定Block0不能用)。长度为16KB内，就定为16KB(32个block)。BL2与BL1之间通常会留一些空扇区作为隔离，长度根据实际大小分配(实验中先定为16KB，32个扇区)。
+	
+			3.DDR初始化后，在其中选择一段长度足够放下BL2的DDR空间即可(0x23E00000)。BL1中只初始化了DDR1，地址空间范围为0x20000000~0x2FFFFFFF(256M)。
+	
+			4.用函数指针方式调用device copy function，把SD卡内容读取到内存。
+			
+						
+				第一种方法：宏定义方式来调用。方便但是编译器不能帮我们做静态类型检查。如以上数据手册提供的式子。	
+				
+				#define CopySDMMCtoMem(z,a,b,c,e)(((bool(*)(int, unsigned int, unsigned short, unsigned int*, bool))(*((unsigned
+				int *)0xD0037F98)))(z,a,b,c,e))	
+				
+				第二种方法：用typedef重定义。
+				
+				typedef usigned int bool;
+				
+				typedef bool(*CopySDMMC2Mem)(int, unsigned int, unsigned short, unsigned int*, bool);
+				
+				CopySDMMC2Mem p1 = (CopySDMMC2Mem)0xD0037F98;
+				p1(x, x, x, x, x);
+				(*p1)(x, x, x, x, x);	//效果与上面的式子相同。
+		
+				各参数含义：
+					
+					z：通道0或2(SD卡选2)。
+					a：开始扇区号(StartBlkAddress)，这里45。
+					b：blockSize，Number of blocks to copy。实验先定32。
+					c：读取后放入内存地址(memoryPtr)。0x23E00000。
+	 				e：with_int，传入0。
+	
+	7.S5PV210的SD卡启动实战2
+		
+		(1)代码分为2部分启动(分散加载)的缺陷
+			
+			1.代码分2部分完全独立，导致代码编写和组织上有麻烦。
+			2.无法让工程项目兼容SD卡启动、Nand启动和NorFlash启动等各种启动方式。
+		
+		(2)uboot中的做法
+	
+			1.程序代码仍然包括BL1和BL2两部分，但组织形式上不分为2部分而是作为一个整体来组织。它的实现方式与以上的不同点是：BL1初始化DDR后，从SD卡中读取并复制整个程序uboot(BL1+BL2)到DDR中，然后从DDR中执行。
+
+		

@@ -1,0 +1,136 @@
+10.文件共享的实现方式
+	
+	(1)文件共享
+		
+		1.指同一个文件被多个独立的读写体系同时操作。
+
+		2.同一个文件指同一个inode、pathname；多个独立的读写体系是指多个文件描述符fd。
+
+		3.共享文件的意义：实现多线程同时操作同一大文件，提升读写效率；实现两个进程的通信。
+			
+	(2)文件共享实现方式：
+		
+		1.linux中实现文件共享的3种方式：
+		
+			第1种：同一个进程中多次使用open打开同一文件。
+			第2种：不同进程中分别使用open打开同一文件。
+			第3种：linux系统提供了dup和dup2两个API用于复制fd。
+		
+		2.前两种的fd不同，进而文件管理表也不同，可推出文件指针也不同。所以是分别读/写。
+	
+	(3)详解文件描述符fd
+
+		1.进程访问文件的流程：
+			
+			进程表
+				文件描述符fd表(文件表指针)
+					文件表
+						V节点指针
+							文件指针
+		2.文件描述符是open文件时操作系统自动分配的。操作系统规定fd从0开始分配。
+	
+		3.open时，内核会从文件描述符表中挑选了一个最小的未使用的数字作为fd返回。
+
+		4.fd中0、1、2已经默认被系统占用了，因此用户进程得到的最小的是3。内核中init进程得到的3个描述符：标准输入(键盘)、标准输出(屏幕lcd)、标准错误。
+
+		5.fprintf函数：可以指定输出到哪个文件描述符中。
+
+11.文件描述符fd的复制1
+	
+	(1)dup函数
+	
+		1.原型：int dup(int fildes)。返回值为新的fd。		
+		2.dup返回的fd和原来的oldfd都只指向oldfd打开的文件，构成共享文件。
+		
+		3.通过dup函数复制得到的fd与oldfd同时write文件时，内容会接续写。
+
+	(2)dup的缺陷
+		
+		1.dup不能指定复制后得到的fd，由操作系统按原则自动分配。
+
+	(3)标准输出的重定位练习
+		
+		1.用close(1)关闭文件，再用dup(fd)复制oldfd。
+		
+		2.这样就可把标准输出重定位到oldfd打开的文件(1.txt)，之后的标准输出会输出到1.txt。
+
+12.文件描述符fd的复制2
+	
+	(1)dup2函数
+		
+		1.原型：int dup2(int fildes, int fildes2)
+		
+		2.与dup作用类似。但dup2允许用户指定新的文件描述符。
+		
+		3.通过dup2函数复制得到的fd与oldfd同时write文件时，内容会接续写。
+		
+	(2)命令行中重定位命令 >
+		
+		1.linux的shell命令执行后，打印结果默认进入标准输出stdout。因为命令的输出都用printf打印。
+
+		2.通过重定位符号>可做到吧ls、pwd等命令的输出重定位到一个文件中。如：ls > 1.txt。即可将输出信息输出到1.txt。	
+			
+		3.实现原理：open+close+dup。	
+		
+13.fcntl函数file contorl
+	
+	int fcntl(int fd, int cmd, ... /* arg */ );
+	
+	(1)多功能文件管理的工具箱：
+	
+		fd：表示操作的文件
+		cmd：表示要进行的命令
+		变参：配合cmd使用
+
+	(2)fcntl的常用cmd
+		
+		1.F_DUPFD命令，复制文件描述符。作用类似于dup和dup2。此命令会在可用的fd中寻找一个大于或等于arg的最小fd进行复制。
+
+	练习：使用fcntl模拟dup2
+		
+14.标准IO库
+	
+	(1)标准IO和文件IO区别
+		
+		1.标准IO是C库函数，文件IO是linux系统的API。
+
+		2.C语言库函数是由API封装而来的，通过调用API来完成操作。
+
+		3标准IO对比文件IO优势：
+			
+			因为比API多一层，所以比API好用；
+			同一库函数在不同操作系统都可使用，API不行；
+			标准IO有缓冲，性能比文件IO更高；
+
+	(2)常用标准IO函数介绍
+		
+		1.fopen、fclose、fwrite、fread、ffulsh(刷新，让操作系统马上把缓冲区内容写入硬盘)
+
+		fopen：
+		
+			FILE *fopen(const char *path, const char *mode);
+			
+			返回值是FILE类型的指针。
+
+		fread和fwrite：
+			
+			size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
+
+			size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
+
+			返回值为读/写对象的实际个数。如果nmemb为1，返回的是读/写的实际字节数。
+			
+			ptr：需要写的内容。
+			size：读/写的对象单位大小。
+			nmemb：读/写的对象个数。
+			stream：需要读/写的文件
+
+		fseek：
+			
+			int fseek(FILE *stream, long offset, int whence);
+
+			用法与lseek类似。
+
+			
+			
+	

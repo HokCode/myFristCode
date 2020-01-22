@@ -1,0 +1,80 @@
+10.uboot的常用环境变量
+	
+	bootdelay：开机延时。
+	
+	ipaddr：开发板的本地ip地址。
+	
+	serverip：开发板通过tftp指令去tftp服务器下载东西时服务器的地址。
+
+	gatewayip：开发板的本地网关地址。
+	
+	netmask：子网掩码。
+	
+	ethaddr：开发板的本地网卡的MAC地址。
+
+11.重要环境变量：bootcmd、bootargs
+	
+	(1)自动运行命令设置：bootcmd
+		
+		1.uboot开机自动启动时，实际是在内部执行了bootcmd这个环境变量的值所对应的命令集。
+
+			bootcmd=movi read kernel 30008000; bootm 30008000 
+			分析：将iNand的kernel分区读取到DDR内存的0x30008000地址处，然后用bootm启动命令从内存0x30008000处去启动内核。
+	
+		2.由printenv实验可知bootcmd是开机自动执行的命令。
+		
+		3.设置方法：set bootcmd 'movi read kernel 30008000; bootm 30008000'。命令中间有分号就一定要加单引号。
+
+	(2)uboot给kernel传参：bootargs
+		
+		1.linux内核启动时，可以接收uboot给他传递的启动参数。linux内核在这些启动参数的指导下完成启动过程。
+
+		2.在uboot的环境变量中设置bootargs后，bootm命令启动内核时会自动将bootargs传给内核。
+
+		bootargs=console=ttySAC2,115200 root=/dev/mmcblk0p2 rw init=/linuxrc rootfstype=ext3
+	
+		分析：
+			
+			console=ttySAC2,115200	控制台使用串口2，波特率为115200。
+
+			root=/dev/mmcblk0p2		根文件系统使用sd卡端口0设备(iNand)第2分区
+			
+			rw						表示根文件系统可读可写。
+			
+			init=/linuxrc			linux的进程1(init进程)的路径。
+			
+			rootfstype=ext3			根文件系统的类型是ext3。
+
+12.uboot中对Flash和DDR的管理
+	
+	(1)uboot阶段Flash的分区
+		
+		1.PC机等产品中，用户在操作系统下使用硬盘，整个硬盘由操作系统统一管理，操作系统会使用文件系统帮我们管理硬盘空间。保证了文件之间不会互相堆叠。
+
+		2.在uboot中没有操作系统，用户对Flash的管理必须先使用分区界定。uboot和kernel中都有个分区表，即做系统移植时对Flash的整体管理分配方法。
+
+		3.分区方法是可以变动的，但是在一个移植中必须先定好标准。如：
+			
+			uboot：必须从Flash起始地址开始存放(扇区0或扇区1或其他，取决于SoC的启动设计)，一般设计为512KB或1MB。
+			
+			环境变量：一般紧贴着uboot存放，大小一般为32KB或多一点。
+			
+			kernel：紧贴着环境变量存放，一般为3MB或5MB，有些会7MB。
+			
+			rootfs：紧贴着kernel存放。
+			
+			自由分区：剩下的Flash，一般kernel启动后将自有分区挂载在rootfs下使用。
+
+		总结：
+			(1)各分区彼此相连，不浪费空间。
+			(2)uboot必须在Flash开头，其他分区相对位置是可变的。
+			(3)各分区大小由工程师自己定在合适的值。
+			(4)分区在系统移植前就要确定好。
+
+	(2)uboot阶段DDR的分区
+		
+		1.与Flash的分区不同，掉电消失。所以每次系统运行时才开始部署使用DDR。
+
+		2.内核的分区主要是在linux内核启动起来之前，linux内核启动后内核的内存管理模块会接管整个内存空间。
+
+		3.内存分区要分配好哪个功能使用内存的哪一部分，避免踩踏。

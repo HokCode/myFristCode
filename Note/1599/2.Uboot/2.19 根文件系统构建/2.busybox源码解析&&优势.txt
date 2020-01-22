@@ -1,0 +1,64 @@
+4.busybox源代码分析1
+	
+	(1)确认程序入口
+
+		1.分析一个程序，最好的路线是按照程序的逻辑程序分析。所以需要先找到程序的入口。
+
+		2.一般c语言程序的入口是main函数，这种情况适应于操作系统下工作的应用程序。
+		
+		3.uboot和linux内核的入口由链接脚本来指定。
+ 
+		4.busybox属于应用程序，所以入口是main函数。
+
+	(2)busybox中main函数全解析
+		
+		1.busybox入口是main函数。其中有很多main函数，但只有libbb/appletlib.c中的main函数被编译了，所以它才是真正的入口。
+
+		2.busybox中有许多xxx_main函数，这些main函数都是busybox支持的一个命令的入口。如：ls_main函数是ls函数的入口。
+
+		3.ls或cd等命令都指向busybox这个程序，执行时先进入main，在main中识别真正要执行的xxx_main函数并跳转。识别的方式是把命令(cd)作为argv[0]来分析。
+
+5.busybox源代码分析2
+
+	(1)inittab解析与执行
+		
+		1.inittab的解析是在busybox/init/init.c/init_main中。
+
+			parse_inittab	解析inittab的函数	
+
+			run_actions		执行action
+
+		2.执行逻辑：
+			
+			先通过parse_inittab函数解析/etc/inittab，将inittab的各个action和process解析出来。
+
+			用run_actions执行sysinit、wait、once(只执行一遍)
+
+			在一个while(1)中执行respawn和askfirst。
+
+	(2)pwd命令执行路径分析
+		
+		1.执行pwd.c/pwd_main函数。
+	
+		2.pwd不需要跟参数，都是直接执行。
+
+			buf = xrealloc_getcwd_or_warn(NULL);
+			if (buf != NULL) {
+				puts(buf);
+				free(buf);
+				return fflush_all();
+			}
+		
+			在xrealloc_getcwd_or_warn函数中调用库函数getcwd。
+
+	(3)busybox的体积优势原理	
+	
+		1.busybox把ls、cd等许多linux常用shell命令集合在一起，体积会比简单加起来小很多。
+
+			du -h /xx命令可查看xx大小
+
+		2.busybox体积优势原因：
+			
+			第一个：busybox提供的shell命令是阉割版的，命令支持的参数选项比发行版少，把少用的都去掉了。
+
+			第二个：busybox所有命令都在一个程序实现，各个命令中许多代码函数都是通用的。共用可以降低重复代码出现的次数，减小总体积。

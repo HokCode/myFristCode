@@ -1,0 +1,128 @@
+1.uboot的环境变量
+
+	(1)作用
+		
+		1.可以不用修改uboot的源代码，仅通过修改环境变量来影响uboot运行时的一些数据和特性。
+	
+	(2)环境变量的优先级
+		
+		1.uboot代码中有一个值，环境变量中也有一个值。如果环境变量为空则使用代码中的值；否则使用环境变量的值。环境变量的值可以覆盖uboot代码中的值。
+
+	(3)环境变量在uboot中的工作方式
+		
+		1.默认环境变量，在uboot/common/env_common.c中的default_enviroment，其本质是一个字符数组，大小为CFG_ENV_SIZE(16kb)。数组类的每个环境变量末端都以'\0'结束。
+		
+		2.SD卡中环境变量分区，在uboot的raw分区中
+		
+		3.DDR中环境变量，在default_enviroment中，实质是字符数组。default_enviroment是uboot中的一个环境变量，运行时会被重定位到DDR中的一个地址。
+
+		总结：
+			a.uboot第一次运行加载的是uboot代码中自带的环境变量。
+			
+			b.saveenv后DDR中的环境变量会覆盖SD卡中的环境变量。
+		
+			c.default_enviroment数组被uboot源代码初始化为一定的值(默认的环境变量)。在uboot重定位时会对SD卡中的env分区进行crc校验。如果校验通过，证明SD卡中已有正确的环境变量存储(非第一次启动)，则relocate函数会从SD卡中读取这份环境变量覆盖DDR中默认的default_enviroment。
+	
+2.环境变量相关命令源码解析1
+	
+	printenv
+	
+	(1)对应函数：do_printfenv(在Cmd_nvedit.c中的第85行)
+
+		1.argc=1时，printenv会打印出所有的环境变量；argc大于1时，printenv会打印出对应的环境变量。
+		
+		argc=1时：
+			
+			for (i=0; env_get_char(i) != '\0'; i=nxt+1)	
+				找到第i个环境变量。
+				
+				for (nxt=i; env_get_char(nxt) != '\0'; ++nxt);
+				到第i个环境变量的末尾'\0'。
+	
+				for (k=i; k<nxt; ++k)
+					putc(env_get_char(k));
+				putc  ('\n');
+					输出第i个环境变量的所有字符。
+
+		argc>1时：
+
+			k = envmatch((uchar *)name, j);
+			if (k < 0) {
+				continue;}
+				找出匹配的命令，并让j对应'='的后一个字符。
+
+3.环境变量相关命令源码解析2
+	
+	setenv
+	(1)命令解析
+		
+		1.命令在uboot/common/cmd_nvedit.common/cmd_nvedit(第85行)
+		
+		__do_setenv解析(在Cmd_nvedit.c中的第145行)：
+		
+		思路(修改已有环境变量值)：
+		第1步:遍历DDR中环境变量的数组，找到对应环境变量的地址(168~174)
+		第2步：擦除原来环境变量'='右边的值(259~265)
+		第3步：写入新的环境变量(266~273)
+		
+		strchr(name, '=')
+			作用：查找name中是否有'='。
+
+	(2)setenv的附加工作
+		
+		1.解决环境变量太多超出了DDR的字符数组空间的问题。
+		2.某些环境变量用set命令更新时也要更新gd中对应的全局变量。如：baudrate、ipaddr。
+
+4.环境变量相关命令源码解析3
+
+	saveenv
+	(1)命令解析
+		
+		1.命令在uboot/common/cmd_nvedit.common/cmd_nvedit中
+		
+	(2)do_saveenv函数(第551行)
+
+		1.从uboot实际执行saveenv命令的输出，和x210_sd.h中的配置中(头文件包含)可分析：变量env_name_spec(第555行)在env_auto.c中。
+	
+		2.env_auto.c中是使用宏定义的方式利用条件编译去控制执行对应芯片(常见)的函数。然后通过在程序中读取INF_REG(启动介质相关寄存器)来获取启动方式。
+		
+		saveenv函数(env_auto.c中424行)
+		3.INF_REG3_REG宏对应的地址是E01CF00C，对应一个寄存器地址。此寄存器含义是用户自定义数据。在start.S(259行)中判断启动介质后#BOOT_MMCSD(3)写入寄存器中，在这里读出判断是moviNand。
+
+		saveenv中的函数saveenv_movinand(env_auto.c中429行)
+		4.真正执行保存变量操作的movi_write_env函数。
+			
+			void movi_read_env(ulong addr)
+			{
+				movi_read(raw_area_control.image[2].start_blk,
+					  raw_area_control.image[2].used_blk, addr);
+			}
+
+			分析：
+			a.raw_area_control是uboot规划iNand/SD卡的原始分区表，里面记录了我们对iNand的分区。其中env分区下标示2。
+			
+				start_blk	起始扇区号(32)
+				used_blk	扇区个数(2，16KB)		
+				addr		
+			b.再下一层就是调用驱动部分的写SD/iNand的底层函数了。
+
+5.环境变量相关命令源码解析4
+
+	getenv(char *name)(不可重入版本)
+	
+		(1)在uboot/common/cmd_nvedit.common/cmd_nvedit的498行。
+		
+		(2)在寻找nxt位置时多了一个if判断是否超过了环境变量范围。
+		
+		(3)envmatch函数匹配成功后返回对应变量地址。
+	
+	getenv_r(char *name, char *buf, unsigned len)(可重入版本)
+
+		(1)可重入即函数运行中途可被中断，返回时不会出错。
+	
+		(2)做法与getenv类似，但getenv_r函数的做法是匹配成功后将对应环境变量赋值一份到提供的buf中，不影响原来DDR中的变量，更安全。
+
+	总结：	
+		getenv可以读写环境变量；getenv_r只可读环境变量。
+
+

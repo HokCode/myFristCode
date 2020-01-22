@@ -1,0 +1,265 @@
+22.布局管理器1
+	
+	(1)旧的GUI开发方式：绝对定位
+		
+		1.直接在像素级指定各个组件的位置和大小。
+		
+		2.导致组件大小无法适应父窗口的变化。
+	
+	(2)Qt提供布局管理器
+	
+		1.提供相关的类对界面组件进行布局管理
+			
+			-能够自动排列窗口中的界面组件。
+			
+			-窗口变化后自动更新界面组件的大小。
+	
+	(3)QLayout
+		
+		1.Qt中布局管理器的抽象基类。
+		
+		2.通过继承QLayout实现了功能各异且互补的布局管理器。
+		
+		3.布局管理器不是界面部件，而是界面部件的定位策略。
+	
+QBoxLayout布局管理器
+		
+	(1)以水平或垂直的方式管理界面组件
+		
+		1.拥有两个子类：
+			
+			-QVBoxLayout
+			
+			-QHBoxLayout
+	
+	(2)使用方式
+		
+垂直布局管理器为例：	
+		QVBoxLayout* Layout = new QVBoxLayout();
+	
+		TestBtn1.setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);	
+			//函数让组件水平和垂直都可扩展。
+	
+		TestBtn1.setMinimumSize(160, 30);
+			//设置组件最小大小。
+			
+		Layout->addWidget(&TestBtn1);
+		Layout->addWidget(&TestBtn2);
+		
+		Layout->addLayout(Layout1);
+			//用于布局管理器的嵌套。
+		
+		Layout->setSpacing(30);	
+			//设置按钮空间为30，让按钮间距为30。
+	
+		setLayout(layout);
+		
+	(3)布局管理器使用技巧
+		
+		1.布局管理器可以相互嵌套，形成更复杂的布局方式
+			
+			-布局嵌套几乎可以完成所有常用的界面布局。
+			
+			-自定义布局类可以达到个性化界面布局的效果，不过有一定实现难度。
+	
+23.布局管理器2
+			
+	(1)布局管理器的比例系数
+		
+		1.默认情况下以等比例的方式更新组件的大小。
+		
+		2.可以自定义组件大小更新时的比例系数。
+	
+	(2)QBoxLayout中的比例系数设置(成员函数)
+		
+		void setStretch(int index, int stertch)
+	
+		bool setStretchFactor(QWidget*widget,int stretch)
+	
+		bool setStretchFactor(QWidget*layout,int stretch)
+	
+		例子：
+		
+		//当改变组件大小时，4个组件的大小会以比例1：1：2：2进行变化。		
+		layout->setStretch(0, 1);
+		layout->setStretch(1, 1);
+		layout->setStretch(2, 2);
+		layout->setStretch(3, 2);
+			
+		//直接设置比例系数		
+		layout->setStretchFactor(&TestBtn1, 1);
+		layout->setStretchFactor(&TestBtn2, 2);
+	
+		注意：
+		组建的初始大小是独立于布局管理器设置的，因此不能保证组件的大小始终符合比例系数的设置。
+	
+QGridLayout布局管理器
+		
+	(1)以网格(二维)的方式管理界面组件
+		
+	(2)QGridLayout中的比例系数设置
+		
+		//设置横向比例
+		void setColumnStretch(int column, int stretch)
+		
+		//设置纵向比例
+		void setRowStretch(int row, int stretch)
+	
+		使用例子：	
+		
+		//第一个按钮放在(0,0), 第二个按钮放在(0,1)	
+		Layout->addWidget(&TestBtn1, 0, 0);
+		Layout->addWidget(&TestBtn2, 0, 1);	
+		
+		//设置第一列比例为1，第二列比例为2。ROW行同理
+		Layout->setColumnStretch(0, 1);
+		Layout->setColumnStretch(1, 2);
+	
+		//让第一个按钮占2行1列。
+		Layout->addWidget(&TestBtn1, 0, 0, 2, 1);
+	
+24.布局管理器3
+		
+QFormLayout布局管理器
+		
+		1.以表单(Form)的方式管理界面组件。
+		
+		2.表单布局中的标签和组件是相互对应的关系。
+	
+	(2)使用方式
+		
+		//设置表单与组件的联系
+		void addRow(QWidget* label, QWidget* field);
+		
+		void addRow(QWidget* label, QLayout* field)
+	
+		void addRow(const QString& labelText, QWidget* field)
+	
+		void addRow(const QString& labelText, QLayout* field)
+	
+	样式函数：
+			
+		void setRowWrapPolicy(RowWrapPolicy policy)
+		void setLabelAlignment(Qt::Alignment alignment)
+	
+	使用例子：
+			
+		layout->setRowWrapPolicy(QFormLayout::WraoAllRows);	//让表单与组件分行排列。
+		
+		QFormLayout::WrapLongRows //显示完整表单，组件可能被放到下一行。适用于屏幕小的设备		
+	
+		layout->setLabelAlignment(Qt::AlignRight);
+			//让表单向右对齐。
+	
+25.布局管理器4
+		
+栈式布局管理器(QStackedLayout)
+	
+		1.所有组件在垂直于屏幕的方向上被管理。
+
+		2.每次只有一个组件会显示在屏幕上。
+		
+		3.只有最顶层的组件会被最终显示。
+		
+	(1)特点
+		
+		1.组件大小一致且充满父组件的显示区。
+		
+		2.不能直接嵌套其他布局管理器。
+		
+		3.能够自由切换需要显示的组件。
+		
+		4.每次能且仅能显示一个组件。
+	
+	(2)使用方法
+		
+		int addWidget(QWidget* widget);
+		
+		QWidget* currentWidget();
+			//返回当前显示在屏幕顶层的组件
+		
+		void setCurrentIndex(int index);
+			//设置屏幕顶层组件。
+		
+		int currentIndex();
+			//获得当前顶层显示组件号。
+		
+		//返回当前布局管理器，需要转换类型
+		dynamic_cast<>(layout());
+	
+		//获取当前管理器组件数目
+		layout->count();
+	
+		只能间接嵌套：
+			
+		新建一个QWidget作为中间组件；
+		把需要嵌套的组件的父组件设为QWidget；
+		利用栈式布局管理器的addWidget添加QWidget。
+	
+	(3)计时器概念
+		
+		1.用于每隔一定的时间触发一个信息。
+		
+		2.计时器消息最终会被转化为函数调用。
+		
+		宏观上：
+		计时器再每个时间间隔会调用指定的函数。
+	
+	(4)计时器(QTimer)的使用方法 <QtCore>
+		
+		1.编写计时器消息处理函数。
+		
+		2.在程序中创建计时器对象。
+		
+		3.连接计时器消息和消息处理函数。
+		
+		4.设置计时器时间间隔并启动计时。
+	
+	与信号与槽类似：
+			
+		//连接函数
+		connect(timer, SINGAL(timeout()), this, 消息处理函数)
+		
+		//启动计时器，每隔2s出发一次消息
+		timer->start(2000);
+	
+26.布局管理器综合实例
+			
+	(1)知识点
+		
+		1.布局管理器可以相互嵌套构成复杂用户界面。
+		
+		2.任意容器组件均可设置布局管理器。
+		
+		3.同一个布局管理器中的组件拥有相同父组件。
+		
+		4.组件间的父子关系是Qt中内存管理的重要方式。
+		
+		
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	

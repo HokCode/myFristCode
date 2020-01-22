@@ -1,0 +1,95 @@
+58.类模板的概念和意义
+	
+	(1)类模板概念
+		
+		1.主要用于存储和组织数据元素。
+		
+		2.数据组织的方式和数据元素的具体类型无关。
+		
+	(2)类模板应用
+		
+		1.只能显示指定具体类型，无法自动推导：
+			
+			template <typename T>
+			
+			class Operator
+			{
+			public:
+				T func(T a, Tb);
+			};
+		
+		调用时：
+			Operator<int> op1;
+			Operator<string> op2;
+	
+	(3)编译器对类模板的编译
+	
+		第一次：对类模板的本身语法进行检查很编译。
+		第二次：在使用类模板时进行检查和编译。
+
+	(4)类模板在工程应用的细节
+		
+		1.必须在头文件定义。
+		
+		2.不能分开实现在不同文件。
+		
+		3.类模板外部定义的成员函数需要加上模板<>声明：
+
+			template < typename T >
+			T operator<T>::add(T a, T b)
+			{
+				return a + b;
+			}
+
+59.类模板的深度解析
+	
+	(1)类模板可定义任意多个不同的类型函数
+		
+		1.定义的方式与函数模板类似：
+			
+			template 
+			<typename T1, typename T2>		
+			class Test
+			{
+			public:
+				void func(T1 a, T2 b);
+			};
+
+			Test<int, float>t;
+			
+	(2)类模板的特化
+		
+		1.根据类型参数分开实现类模板。定义以下两个类模板，编译器会根据类型参数不同选择哪个使用。(普通特化)
+		
+			template 
+			<typename T1, typename T2>		
+			class Test
+			{};
+		
+			template 
+			<typename T, typename T>			
+			class Test
+			{};
+
+		2.完全特化：显示指定类型参数，不需要半指参数T。
+
+			template 
+			< >			
+			class Test <int, int>
+			{};
+
+	(3)注意事项
+		
+		1.特化只是模板的分开实现，本质是同一个类模板。
+		
+		2.使用特化类模板时必须显示指定每一个类型的参数。
+
+	(4)函数模板特化
+		
+		1.函数模板只支持完全特化：
+			
+			template
+			< >
+			bool Equal<void*>(void* a, void* b)
+			{}
+

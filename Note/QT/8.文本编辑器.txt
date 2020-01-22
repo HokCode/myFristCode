@@ -1,0 +1,177 @@
+27.应用程序中的主窗口
+	
+	(1)概念
+		
+		1.主窗口是与用户进行长时间交互的顶层窗口。
+		
+		2.程序的绝大多数功能都是主窗口提供。
+		
+		3.主窗口通常是应用程序启动后显示的第一个窗口。
+		
+		4.整个程序由一个主窗口和多个对话框组成。
+
+	(2)Qt中的主窗口
+		
+		1.Qt开发平台中直接支持主窗口的概念。
+		
+		2.QMainWindow是Qt中主窗口的基类。
+		
+		3.QMainWindow继承与QWidget是一种容器类型的组件。 
+
+	(3)Qt中提供与菜单相关的类组件
+		
+		-菜单栏(QMenuBar)
+
+		-下拉菜单组(QMenu)
+		
+		-菜单项(QAction)
+
+		使用例子：
+			
+		QMenuBar* mb = menuBar();		
+		//菜单栏
+		
+		QMenu* menu = new QMenu("File(&F)", parent);
+		//下拉菜单组，可通过快捷键打开。
+		
+		QAction* action = new QAction("New(N)", parent);
+		//菜单项
+		
+		action->setShortcut(QKeySequence(KEY))
+		//KEY为快捷键。如：Qt::CTRL + Qt::Key_N(crtl + n)
+		
+		action->addSeparator();
+		//添加分隔符。
+				
+		menu->addAction(action);//将菜单项加入菜单组
+		mb->addMenu(menu);//将菜单组加入菜单栏
+
+28.主窗口的工具栏
+	
+	(1)工具栏的概念和意义
+		
+		1.应用程序中集成各种功能实现快捷使用的一个区域。
+		
+		2.工具栏不是应用程序中必须存在的组件。
+		
+		3.工具栏中的元素可以是各种窗口组件。
+		
+		4.工具栏中的元素通常以图标按钮的方式存在。
+
+	(2)Qt中提供与工具栏相关的类组件
+		
+		-工具栏(QToolBar)
+
+		-快捷项(QAction)
+
+		创建工具栏例子：
+			
+			QToolBar* tb = addToolBar("Tool Bar");
+			QAction* action = new QAction("", parent);
+			
+			action->setToolTip("Open");	
+				//鼠标移到的提示符
+			
+			action->setIcon(QIcon(":/Res/pic/open.png"))
+				//符号:代表图标在资源文件中。
+				
+			tb->addAction(action);
+			
+			tb->addWidget();
+				//QToolBar中可以加入任意的QWidget组件。
+				
+			tb->addSeparator()
+				//分隔符函数。
+
+	(3)QToolBar的关键成员函数
+		
+		-void setFloatable(bool floatable)
+			//工具栏能否悬浮，能否被拖动
+		
+		-void setMovable(bool movable)
+			//工具栏对象是否能停留在上下左右某块区域
+
+		-void setIconSize(const QSize& iconSize)
+			//设置工具栏图标大小
+
+29.主窗口的状态栏
+	
+	(1)状态栏的概念和意义
+		
+		1.应用程序中输出简要信息的区域。
+		
+		2.一般位于主窗口的最底部。
+		
+		3.消息类型：
+			
+			实时信息，如：当前程序状态。
+			
+			永久消息，如：程序版本号，机构名称。
+			
+			进度信息，如：进度条提示，百分比提示。
+	
+	(2)相关类组件
+		
+		-状态栏(QStatusBar)		
+			QStatusBar* sb = statusBar();
+				//创建指针指向状态栏			
+					
+			sb->addWidget()
+				//在状态栏中左半部分添加组件
+			
+			sb->addPermanentWidget();
+				//在状态栏中右半部分添加组件
+			
+			sb->showMessage("D.T")
+				//在状态栏中输入的文本信息
+				
+			Qt设计原则：
+				-左边区域用于输出实时消息。
+				-右边区域用于设置永久消息。		
+
+		-任意组件(QWidget)
+			
+30.文本编辑组件
+	
+	(1)Qt支持3种常用的文本编辑组件
+		
+		-QLineEdit
+			单行文本编辑组件
+		
+		-QTextEdit
+			多行富文本(普通文本+多媒体元素(图片、视频、音频等))编辑组件
+			
+		-QPlainTextEdit
+			多行普通文本编辑组件
+			
+		使用例子：
+			
+			//在文本中插入字符			
+			lineEdit.insert("G.J");
+			textEdit.insertPlainText("G.J");
+			plainTextEdit.insertPlainText("G.J");
+				
+			//富文本插入图片(html脚本)
+			textEdit.insertHtml("<img src=\"C:\\路径\">/");
+
+	(2)Qt中常用文本编辑组件的内置功能
+		
+		1.右键弹出式菜单
+		
+		2.快捷键功能
+			复制、粘贴、剪切等。
+
+	(3)设置命令
+		
+		QPlainTextEdit mainEditor;	
+			//创建文本编组组件对象。
+		
+		mainEditor.setParent(this);
+			//设置父组件。
+			
+		mainEditor.toPlainText();
+			//把数据转为字符串。
+			
+		setCentralWidget(&mainEditor);
+			//设置中央组件。
+

@@ -1,0 +1,138 @@
+4.解决内核启动中的错误
+	
+	(1)认识内核启动OOPS 
+	
+		错误信息1：
+		Unable to handle kernel NULL pointer dereference at virtual address 00000060。内核遭遇野指针。
+	
+		错误信息2：
+		Internal error: Oops: 5 [#1] PREEMPT。
+		OOPS：代表内核启动失败致命消息。
+
+		错误信息3：
+		PC is at dev_driver_string+0xc/0x44
+		LR is at max8698_pmic_probe+0x150/0x32c
+		分析：从以上错误信息可看出，程序是执行dev_driver_string或max8698_pmic_probe(函数或汇编中的标号)时出错了。
+
+	(2)定位错误及解决问题
+	
+	错误信息max8698_pmic_probe：
+		max8698电源管理ic的驱动安装过程中出现问题。
+	
+	分析：
+		1.开发板系统中配置了支持此电源管理IC，在启动加载其驱动过程中出错了。(OOPS了)
+
+		2.结合X210开发板硬件实际情况分析：X210开发板没有max8698这个电源管理IC，所以加载时会出错。
+
+	解决：
+		1.因为linux内核是高度模块化可配置的，即每一个模块都是被配置项条件编译的。所以内核中不用通过直接修改源代码解决问题，重新设置配置项即可。
+		
+		2.在make menuconfig中搜索X8698关键字找到配置项，修改配置即可。
+		
+	结论：
+		
+		1.内核再次启动后到挂载rootfs才出错。
+
+5.iNand的问题和安排
+	
+	(1)从错误信息定位问题
+	
+	错误信息1：
+		
+VFS: Cannot open root device "mmcblk0p2" or unknown-block(0,0)
+
+Please append a correct "root=" boot option; here are the available partitions:
+
+Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(0,0)	(重点分析)
+	分析：内核试图挂载rootfs时失败，原因是unknown-block(不能识别块设备)。
+
+	错误信息2：	
+
+	Backtrace：
+	逆向寻找错误信息，结合内核启动流程分析原因。
+
+		分析：
+	
+		1.检查kernel启动时uboot传给内核的cmdline。root=xx表示的内核位置。如我们uboot传参为：root=/dev/mmcblk0p2，mmc设备0的第2分区，即iNAND的第2分区。
+	
+		2.所以问题出在iNand，kernel启动过程中加载mmc驱动的时候出现了问题。导致内核启动找不到内置iNand和外置SD卡。
+
+	(2)额外的问题
+		
+		1.MBR是用于描述块设备的分区信息的，如SD卡的MBR存放在扇区0中。
+
+		2.uboot的fdisk命令对iNand进行分区，其命令内部已经固定了iNand的分区表。内核直接读取iNand中的MBR即可知道分区。
+
+6.网卡驱动的移植和添加实验
+	
+	(1)网卡驱动移植标准
+	
+		1.网卡驱动移植成功时，启动信息为：
+		
+dm9000 Ethernet Driver, V1.31
+eth0: dm9000c at e08f4300,e08f8304 IRQ 42 MAC: 00:09:c0:ff:ec:48 (platform data)
+
+		2.如果网卡驱动没有移植，启动信息为：
+		
+		dm9000 Ethernet Driver, V1.31
+		ERROR : resetting 
+		dm9000 dm9000.0: read wrong id 0x2b2a2928
+		dm9000 dm9000.0: read wrong id 0x2b2a2928
+		dm9000 dm9000.0: read wrong id 0x2b2a2928
+		dm9000 dm9000.0: read wrong id 0x2b2a2928
+		dm9000 dm9000.0: read wrong id 0x2b2a2928
+		dm9000 dm9000.0: read wrong id 0x2b2a2928
+		dm9000 dm9000.0: read wrong id 0x2b2a2928
+		dm9000 dm9000.0: read wrong id 0x2b2a2928
+		dm9000 dm9000.0: wrong id: 0x2b2a2928
+		dm9000 dm9000.0: not found (-19).
+
+	(2)make menuconfig设置
+		
+		1.menuconfig中添加DM9000支持，设置为Y。
+
+	(3)mach-smkc110.c中寻找硬件驱动初始化代码
+
+		1.smdkc110_machine_init(mach-smkc110.c中的第1727行)中是整个开发板硬件初始化的函数。
+
+		2.smdkc110_devices(1525)和smdkc110_dm9000_set(1546)是和DM9000有关的。
+
+		3.smdkc110_dm9000_set是DM9000相关的SROM_BANK寄存器设置。与uboot类似，但内核中操作寄存器要用读写函数，不能直接读写。
+
+	(4)修改相应的配置参数
+		
+		1.smdkc110_devices中找到s5p_device_dm9000(1322行)。相关数据的宏定义位于arch/arm/plat-s5p/devs.c和arch/arm/mach-s5pv210/include/mach/map.h
+	
+		s5p_device_dm9000内部：
+		
+		s5p_dm9000_resources
+		
+			.start = S5P_PA_DM9000，(起始地址，改为0x88000300)
+		
+			defined(CONFIG_DM9000_16BIT) (ADDR2为1，改为+2)
+			.start = S5P_PA_DM9000 + 4
+			
+			.start = IRQ_EINT10	(DM9000中断，直接改为10)
+			.end   = IRQ_EINT10
+			
+		
+		s5p_dm9000_platdata
+			无需作修改。
+		
+7.内核启动第一阶段的调试方法
+	
+	(1)第一阶段过程简单分析
+	
+		1.内核启动在head.S中首先进行了三个校验，分别是：CPU的id校验、机器码校验、tag校验。
+
+		2.创建页表和b start_kernel。
+
+	(2)调试方法
+		
+		1.如果没有到达start_kernel就出现错误，内核没有打印出信息。可通过汇编操作led点亮/熄灭的代码在head.S中定位问题。
+	
+	(3)led汇编代码
+		
+		1.因为r0~r2、r5都在使用，所以只能使用r3、r4寄存器。
+
+		

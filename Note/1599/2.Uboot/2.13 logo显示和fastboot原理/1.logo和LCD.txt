@@ -1,0 +1,55 @@
+1.X210的uboot中LCD操作分析
+	
+	(1)LCD背光电路分析
+		
+		1.LCD背光源有2种设计。一种是简单设计：只能点亮或熄灭；另一种设计类似手机屏幕可以调节亮度。第二种设计需要一个额外的PWM调光IC来支出支持。X210的LCD模组上使用MP3202芯片来做调光。
+
+		2.分析与原理图和MP3202的数据手册可得出结论：
+			
+			a.PWM_TOUT0(GPD0_0)接在了IC的FB引脚上，SoC通过这引脚输出合适频率的PWM波形给调光IC，这个波形的占空比就会通过控制MP3202从而控制亮度。
+
+			b.L_DISP(DISP、SYS_OE、GPF3_5)接在了MP3202的EN引脚上。SoC通过这引脚来控制芯片是否工作。
+
+			总结：背光点亮，需要同时满足以上两个条件。一般来说uboot中会把GPD0_0设置成输出模式然后输出低电平，不会输出PWM波形。
+
+	(2)uboot中LCD代码分析
+		
+		1.代码位置在九鼎移植的uboot/board.c中第416行init_sequence中的display_banner函数中。display_banner函数中调用的open_backlight函数使能了背光。但后面的代码还是会再做一次。
+
+		2.真正初始化LCD系统并显示logo的函数是start_armboot中的X210_preboot_init函数(887行)，这函数是九鼎移植时添加的。函数定义处位于board/samsung/x210中的x210.c。
+
+2.logo显示和LCD屏幕分辨率适配			
+
+	(1)mpadfb_init函数分析：
+
+		fb_init函数
+			framebuffer相关的数据结构赋值。左值的info是一个结构体，这个结构体描述fb驱动中的是硬件设备参数；右值的lcd是自定义的数据结构，里面存放配置给驱动的数据。
+
+		lcd_port_init函数
+			初始化lcd的GPIO端口。这个函数是初始化LCD相关的SoC引脚。
+
+		lcd_reg_init函数
+			LCD寄存器的初始化。即SoC的LCD控制器中寄存器的初始化。
+
+		以上三个函数调用执行完后，LCD初始化就完成了。
+
+		display_logo函数
+			负责把logo图片写到LCD的fb中。
+
+		backlight_brigness_init函数
+			负责开背光。
+
+		分析：
+			1.因为开发板lcd屏幕大小不一样，所以要在fb_init函数中更改参数。
+
+	(2)logo显示display_logo分析
+		
+		思路：
+		1.先用工具将logo图片做成二进制的字符串数据。
+		
+		2.先计算屏幕大小
+		
+		3.然后通过对比logo长宽算出屏幕中央的坐标。
+		
+		4.填充logo。
+

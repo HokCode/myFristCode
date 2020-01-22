@@ -1,0 +1,172 @@
+5.menuconfig的使用
+	
+	(1)menuconfig图形界面中每个选择项对应.config中的一个配置项。
+
+	(2)linux内核中一个功能模块有三种编译方法：编入、去除、模块化。
+	
+		编入(built-in)：将这个模块的代码直接编译链接到zImage中。
+		
+		去除：不编译不链接这个模块的代码。
+		
+		模块化：编译这个模块的代码，但不链接到zImage中，会将其单独链接成一个内核模块.ko文件。这样内核启动起来后可以动态加载或卸载这个模块。
+	
+	
+		按键命令：
+			Y	编入
+			N	去除
+			M	模块化编译
+		
+	注意：[]才可以模块化；<>不可以模块化。
+	
+6.menuconfig的工作原理
+		
+	(1)menuconfig本身由一套软件支持
+		
+		1.linux为了实现图形化界面的配置，专门提供了一套配置工具menuconfig。
+	
+		2.linux中用安装的ncurses库来实现文字式图形界面。
+		
+		3.scripts\kconfig\lxdialog目录下的一部分c文件就是提供给menuconfig的程序源代码。
+	
+	(2)menuconfig读取Kconfig文件
+		
+		1.menuconfig本身的软件只负责提供menuconfig工作的这一套逻辑(如：通过上下左右按键调整光标)。不负责提供内容。
+		
+		2.menuconfig显示的菜单内容(目录结构、菜单项目细节)是由内核源码树各个目录下的Kconfig文件来支持的。
+	
+		3.在相应的Kconfig文件中删除一个config项，则再次make menuconfig后被删除的项就会消失。
+	
+	(3)menuconfig读取/写入.config文件
+		
+		1.menuconfig的菜单内容来自Kconfig文件，但是每个文件的选择结果并非保存在Kconfig文件中。
+		
+		2.menuconfig工作时，它会读取.config文件并用其中的配置选择结果来初始化各个菜单项的选择值。退出menuconfig时，如果我们关闭前更改过并保存，那新的配置值会重新写入.config文件中。
+		
+7.Kconfig文件详解1
+		
+	(1)Kconfig的格式
+		
+		1.Kconfig按一定的格式来书写，menuconfig程序可以识别这种格式从而可从中提取出有效信息组成menuconfig中的菜单项。
+		
+		2.在移植某个驱动设备时，有时需要通过自己添加Kconfig中的一个配置来将某个设备驱动添加到内核的配置项目中。
+		
+		menuconfig XX：表示xx是菜单(XX有子菜单)。
+		config XX：表示XX是菜单中的一个配置项。
+		XX是对应配置项的名字，CONFIG_XX就构成了.config中的配置项名字。
+		
+		3.Kconfig的目录关系：一个menuconfig后面的所有config项就是这个menuconfig的子菜单。
+		
+		4.内核源码目录树中每一个Kconfig都会source引入其所有子目录(下一层目录)下的Kconfig，从而保证了所有Kconfig项目都被包含进menuconfig中。
+		
+	(2)tristate和bool的含义
+		
+		1.tristate意思是三态，对应Y、N、M三种状态。
+		
+		2.bool对应Y、N两种状态。
+		
+8.Kconfig文件详解2	
+	
+	(1)depends的含义
+		
+		config DM9000_16BIT
+		bool "DM9000 16-bit"
+		depends on DM9000
+	
+		1.指本配置项(DM9000_16BIT)依赖于另一个配置项(DM9000)，只有被依赖的配置项为Y或M，本配置项才有意义。
+	
+		2.但有时depends项目会导致一些配置项消失了找不到。依赖的条件可以不止一个，也可以取反。如:
+			
+			depends on XX || YY
+			depends on !XX
+			depends on XX && YY
+	
+	(2)select的含义
+		
+		select CRC32
+		select MII
+		
+		1.自动选择。当config XX成立后，会自动选择select后面的内容。
+		
+	(3)default	
+		
+		default n
+		
+		1.默认值。如果没有给配置项赋值，就会默认赋值为default后的值。
+	
+	(4)help	
+		
+		1.表示帮助信息。
+	
+	(5)Kconfig、.config文件、Makefile三者的关联
+		
+		1.配置项被配置成Y、N、M会影响.config文件中的CONFIG_XX变量的配置值。
+		
+		2.最后.config中的配置值(Y、N、M)会影响最后的编译过程。编译由Makefile实现。如：
+	
+			obj-$(CONFIG_DM9000) += dm9000.o
+			分析：如果CONFIG_DM9000变量为y，则执行obj += dm9000。
+	
+9.menuconfig的实验学习思路
+
+	(1)验证menuconfig和.config的关系
+		
+		1.配置menuconfig时，会读取.config中的配置值来初始化menuconfig中的配置项。
+	
+		2.在其中一处修改保存后，另一处也会变化。一般在menuconfig中进行修改。
+	
+	(2)验证menuconfig和Kconfig的关系
+		
+		1.menuconfig读取Kconfig的内容作为菜单项目内容。
+	
+		2.修改添加Kconfig后，menuconfig中也会找到添加配置项。
+	
+	(3)验证menuconfig和Makefile的关系
+		
+		1.把一个模块配置成y后，make编译链接时会把它编译链接到最终的zImage中。
+		
+		验证方法：
+			
+		方法一：在模块对应的源代码目录中查看是否被编译。(查找对应的.o文件)。
+	
+			System.map：每个符号与链接地址的对应表。
+		
+		
+		方法二：去zImage对应的elf格式vmlinux中查看符号。
+		
+		
+		方法三：将vmlinux反编译(objdump)得到的文件中查找对应模块的符号。
+		
+			/usr/local/arm/arm-2009q3/bin/arm-none-linux-gnueabi-objump -D vmlinux > vmlinux.txt
+	
+		
+		方法四：将zImage下载到开发板中启动，启动后查看对应模块是否工作。
+		
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	

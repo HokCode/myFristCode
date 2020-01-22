@@ -1,0 +1,152 @@
+5.uboot常用命令1
+	
+	(1)类似linux终端的行缓冲命令行
+	
+		1.行缓冲：指输入回车(换行)后，系统才认为当前命令输入完毕。
+
+		2.linux终端设计有3中缓冲机制：无缓冲、行缓冲、全缓冲。
+
+	(2)有些命令有简化的别名
+		
+		1.printenv命令可简化为print、setenv->set。
+	
+	(3)有些命令会带参数(格式固定)
+		
+		1.uboot的每个命令都有事先规定好的各种格式。如：不带参数、带参数、可带参数。
+
+	(4)命令中的特殊符号(如，单引号'')
+		
+		1.有些命令带的参数很长或者有空格，需要用单引号引起来。
+
+	(5)有些命令是一个命令族(如，movi)
+		
+		1.movi read、movi init等等，开头一样，但参数不同。同一个命令族的所有命令都有极大关联，如movi开头的命令族都和moviNand(即EMMC、iNand)操作有关，moviNand是三星公司起的名字。
+	
+	(6)printenv/print命令
+		
+		1.不带参数，作用是打印出系统的环境变量。
+
+6.uboot的常用命令2
+		
+	(1)设置(添加/更改)环境变量：setenv/set
+		
+		添加环境变量：set name value
+		删除环境变量：set name 空
+		
+	(2)保存环境变量的更改：save
+	
+		1.将内存中环境变量的值同步覆盖保存到flash中。更改一个环境变量的值后要save才能彻底更改。
+		
+	(3)网络测试指令：ping
+		
+		1.测试开发板和主机之间的网络连接。步骤如下：
+			
+			(1)开发板插上网线。
+			(2)设置主机windows本地连接IPv4地址。
+			(3)确认开发板中uboot里几个网络相关的环境变量是否正确。如：ipaddr(当前开发板IP地址)，与windows的IP地址必须在同一网段。
+
+				网段概念：一个IP地址分为2部分，一部分是网段地址，另一部分是网段内的主机地址，两部分划分由子网掩码决定。如：子网掩码为255.255.255.0，指前三部分是网段地址，第四部分是主机地址。
+
+7.开发板和主机的ping通(总结上节ping问题)
+	
+	(1)开发板运行linux和主机windows。
+		
+		1.IP地址设置好同一网关后，两者能互相ping通。
+		2.开发板linux修改IP命令：ifconfig eth0 192.168.x.x
+		
+	(2)开发板运行linux和虚拟机ubuntu
+
+		1.IP地址设置好同一网关后，两者能互相ping通。
+		2.重启网卡命令：ifconfig eth0 down；ifconfig eth0 up
+
+	(3)虚拟机ubuntu和windows主机
+		
+		1.把ubuntu的网络适配器调成桥接模式。
+		2.在虚拟网络编辑器调好参数。
+
+8.uboot的常用命令3
+	
+	(0)uboot目标是启动内核，为了启动内核需要内核部署。内核部署需要将内核镜像从主机中下载过来烧录到本地flash中。主流下载方式：fastboot和网络下载(tftp)。
+	
+	(1)tftp下载命令
+
+		1.tftp下载时，uboot属于tftp的客户端程序；主机windows或虚拟机ubuntu必须有一个tftp服务器。将要下载的镜像文件放在服务器的下载目录中，然后开发板中使用uboot的tftp命令下载。
+
+		2.可用一些软件在windows搭建tftp服务器。如：tftpd32；也可以在linux下搭建tftp服务器。
+		
+		下载步骤：
+			
+			(1)tftp的下载目录是/tftpboot，将要下载的镜像复制到这个目录下。
+			(2)开发板的环境变量serverip要设置为虚拟机ubuntu的ip地址。
+			(3)在uboot命令行输入：tftp 0x30000000 zImage-qt。
+
+	(2)nfs启动内核命令：nfs	
+		
+9.uboot的常用命令4
+	
+	(1)SD卡/iNand操作指令movi
+		
+		1.开发板如果用SD卡/EMMC/iNand等作为Flash，则在uboot中操作Flash的指令movi(或mmc)。
+		
+		2.movi指令都是movi read和movi write一个组的。前者用来读取iNand到DDR上，后者用来将DDR中的内容写入iNand。
+
+			如：movi read  {u-boot | kernel} {addr}
+
+			分析:	1.movi和write没有任何标记标注，说明每一次使用指令都需要。
+					2.{u-boot | kernel}，大括号中的竖线表示是多选一。
+					3.[]，中括号表示可有可无参数。
+			
+			例子:	movi read u-boot 0x30000000，意思是把iNand中的u-boot分区读取到DDR的0x30000000起始位置处。
+			
+			注意：
+			(1)uboot代码将iNand分成很多个分区，每个分区有对应地址范围和分区名。uboot可通过地址或分区名来操控iNand分区。
+			
+			(2)0x30000000可以直接写成30000000。uboot的命令行中所有数字都被默认当做16进制处理。
+
+	(2)NandFlash操作指令nand
+		
+		1.理解方法与iNand类似
+		
+	(3)内存操作指令：md、mw、mm
+		
+		1.DDR中是没有分区的，所以在裸机程序中为了防止越界，uboot会放在(0x23E00000)地址处。
+
+		2.指令解析
+			
+			md：memory display，用来显示内存中的内容
+				
+				md[.b, .w, .l] address[# of objects]。b(byte)代表一个字节；w(word)代表2个字节；l(long)代表4个字节。
+
+			mw：memory write，写内存。
+			
+				mw [.b, .w, .l] address value [count]。
+
+			mm：memory modify，修改内存中的某一块，与mw类似。
+	
+				可以逐字节连续修改，以y结束。
+
+	(4)启动内核指令：bootm、go
+		
+		1.差别：bootm启动内核同时给内核传参，go命令启动内核不传参。
+
+		2.一般情况下使用bootm；
+		go命令内部其实就是一个指向内存地址的函数指针，所以go命令的实质是PC直接跳转到一个内存地址去运行。所以go命令可以用来执行裸机程序。
+			
+			拓展：一种调试裸机的方法：先启动uboot并在uboot中下载裸机程序，再用go命令执行裸机程序。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

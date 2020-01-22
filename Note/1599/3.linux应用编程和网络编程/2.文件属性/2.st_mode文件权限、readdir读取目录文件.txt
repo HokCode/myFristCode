@@ -1,0 +1,90 @@
+4.文件权限管理1
+	
+	(1)st_mode中记录文件权限位
+		
+		1.st_mode本质是一个unsigned_int类型的数，每个位都代表对应含义。使用专门的掩码位与取出相应的位即可得到相应的信息。
+		
+		2.一个文件的属主就是创建文件的用户。可以chown命令修改文件属主；chgrp命令修改文件所在组。
+		
+	(2)文件操作时的权限检查规则
+		
+		1.判断方法：如xxx.txt有9个权限位规定三种用户(owner、grope、other)的操作权限。在调用xxx.txt时要先确定调用用户属于哪一种。
+
+5.文件权限管理2
+	
+	(1)access函数检查权限设置
+
+		1.测试当前执行程序的用户在当前环境对目标文件是否具有某种操作权限。
+
+		int access(const char *pathname, int mode);
+
+		2.mode位有：R_OK、W_OK、X_OK、F_OK。其中F_OK用于检测文件是否存在。
+
+	(2)chmod/fchmod与权限修改
+		
+		1.chmod只有root用户才有权利去执行修改。chmod也是通过封装linux的chmodAPI实现的。
+
+		int chmod(const char *path, mode_t mode);
+		int fchmod(int fd, mode_t mode);
+
+		2.mode模式位是通过几个掩码的位于来决定目标文件即将拥有的权限。
+
+	(3)chown/fchown/lchown与属主修改
+		
+		1.linux中的chown命令用于修改文件属主。也是通过封装chown的API实现的。
+
+		chown root xxx.txt
+		chgrp root xxx.txt
+
+		2.三者区别与stat、fstat、lstat函数三者区别相同
+	
+	(4)umask与文件权限掩码
+		
+		1.可理解为文件掩码是linux系统维护的一个全局设置。用于设定新创建文件的默认权限。(rootfs中的rcS)
+
+		2.当umask为0022时，创造的新文件权限为：-rw-r--r--。
+		
+		3.umask命令也是通过封装umask的API实现的。
+
+		注意：
+		默认创建文件权限不支持拥有执行(x)权限，可创建后通过chmod修改。
+
+6.读取目录文件
+		
+	(1)库函数opendir与readdir
+		
+		DIR *opendir(const char *name);
+		struct dirent *readdir(DIR *dirp);
+		
+		1.opendir函数打开一个目录后会返回一个DIR类型的指针。
+		
+		2.readdir函数接收一个DIR类型指针，返回一个dirent结构体，其中的元素代表着文件夹信息：
+						
+			d_ino	 inode number，inode号码。
+			d_reclen length of this record，目录记录。
+			d_type	 读出文件类型
+			d_name[256]	读出文件名字
+		
+		3.readdir调用一次只能读出一个目录项，所以要读出目录中所有目录项就必须多次调用readdir函数。函数内部会自动记录已读目录项，所以不会返回相同目录项。当函数返回NULL指针，就表示已读完。
+		
+	(2)程序实现读取目录	
+		
+		1.针对读入文件类型的不同，linux中有许多宏定义。如：
+			
+			DT_BLK      This is a block device.
+			DT_CHR      This is a character device.
+			DT_DIR      This is a directory.
+
+	(3)可重入函数概念
+		
+		1.使用readdir函数时，其内部会申请内存并把地址返回给接收其返回值的指针。但多次调用readdir，其只会一直使用第一次申请的内存，所以readdir不可重入。
+
+		2.readdir多次调用之间是有关联的。这也是不可重入函数的特点。
+		
+		3.因为在多线程操作中不可重入函数不安全，所以readdir有可重入版本：readdir_r。
+		
+		
+		
+		
+		
+		

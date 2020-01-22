@@ -1,0 +1,186 @@
+31.软件开发流程简介
+	
+	(1)常见软件开发流程
+		
+	-即兴模型 Bulid-and-Fix Model		
+		1.与用户交流后立即开始开发。		
+		2.没有需求分析和需求发掘。		
+		3.没有整体设计以及规划的过程。		
+		4.没有相关软件文档，维护性差。
+		
+	-瀑布模型 Qaterfall Model
+		1.通过自上而下的步骤进行软件开发。		
+		2.需求分析->架构设计->开发实现->系统测试->最终发布。
+		3.不允许回退，大型软件的需求分析容易遗漏。
+		
+	-增量模型
+		1.将系统功能分解为互不重叠的子功能。
+		2.每次全力实现一个子功能。
+		3.子功能全部完成后系统开发结束。
+		4.每个子功能相当于一个瀑布模型。
+		5.不适应需求不断变化的软件开发。
+			
+	-螺旋模型
+		1.采用一种迭代的方法来进行系统开发。
+		2.软件项目分解成多个不同的版本完成。
+		3.每个版本的开发过程需要用户参与。
+		4.根据前一个版本的反馈计划下一个版本。
+		5.适合通用类型软件开发(社交软件)。
+		6.对于私人定制软件有反应不够快的缺陷。
+			
+	-敏捷模型
+		1.一切从简、拥抱变化、高效工作、持续开发。
+		2.把用户需求分解成最简单的各个部分。
+ 
+	(2)阶段性测试工具
+		
+		1.Valgrind内存分析器。
+
+32.Qt中的文件操作
+	
+	(1)Qt中IO操作的处理方式
+	
+		1.通过统一的接口简化了文件与外部设备的操作方式。
+		
+		2.把文件看作一种特殊的外部设备。
+		
+		3.文件操作与外部设备的操作相同。
+		
+	(2)IO操作中的关键函数接口
+		
+		-打开设备：bool open(OpenMode mode)
+		
+		-读取数据：QByteArray read(qint64 maxSize)
+		
+		-写入数据：qint64 write(const QByteArray& byteArray)
+		
+		-关闭设备：void close()
+
+		IO操作的本质：连续存储空间的数据读写。
+
+	(3)Qt中IO设备的类型
+	
+		-顺序存取设备
+			
+			只能从头开始顺序的读写数据，不能指定数据的读写位置
+			
+		-随机存取设备
+			
+			可以定位到任意的位置进行数据的读写(seek function)
+
+	(4)文件操作类QFile
+		
+		1.继承与QIODevice。
+
+		2.使用例子：
+			
+			QFile file("c:/Users/test.txt");　
+			
+			if( file.open(QIODevice::WriteOnly | QIODevice::Text )
+			{
+				file.write("test");
+				file.close;
+			}
+
+			if( file.open(QIODevice::ReadOnly | QIODevice::Text )
+			{
+				QByteArray ba = file.readAll();
+					//读取所有字符。
+					//file.read(4)读取4个字符。
+					//file.readLine()读取一行。
+				QString s(ba);
+					//用字节数组ba初始化字符串s。
+				
+				qDebug() <<　s;
+				
+				file.close();
+			}
+			
+			QString s;
+			s.toStdString().c_str();
+				//将QString类型数据转换为字符数据			
+
+		3.QFileInfo类用于读取文件属性信息：
+		
+			QFileInfo info(file);
+			
+			file.exists();			//是否存在
+			file.lastRead();		//最后一次被读的时间
+			file.lastModified();	//最后一次修改的时间
+			file.suffix();			//得到文件后缀
+
+	(5)临时文件操作类 QTemporaryFile
+		
+		1.安全地创建一个全局唯一的临时文件。
+		
+		2.当对象销毁时对应的临时文件将被删除。
+		
+		3.临时文件的打开方式为QIODevice::ReadWrite。
+		
+		4.临时文件常用于大数据传递或者进程间通信的场合。
+
+		使用例子：
+			
+		QTemporaryFile tempFile;	//不需要指定文件名。
+		
+		if( tempFile.open() )		//打开方式默认为ReadWrite
+		{
+			
+		}
+
+33.文本流和数据流
+	
+	(1)文件类型
+		
+		-文本文件
+			文件内容是可读的文本字符。
+			
+		-数据文件
+			文件内容是直接的二进制数据。
+
+		缺陷：
+		直接用QFile进行文本读写要考虑类型转换。不同数据要先转换为字节数据才可进行读写。
+
+	(2)Qt提供辅助类简化了文本文件/数据文件的读写
+		
+		-QTextStream
+			写入的数据全部转换为可读文本。
+		
+		-QDataStream
+			写入的数据根据类型转换为二进制数据。
+
+		使用方式：
+			
+			//创建QFile文件对象file
+			//使用file对象打开文件
+			
+			//将数据写入文件
+			QXXXXStream out(&file);			
+			out << QString("test") << 3.14;
+
+			//将数据从文件中读数
+			QXXXXStream in(&file);
+			in >> dt;
+			in >> reslut;
+			in >> value;
+
+			in.atEnd();
+				//用于判断是否已读到文件末尾。
+
+			in.readLine();
+				//用于读取一行。
+
+	(3)数据流文件的版本信息
+		
+		1.不同Qt版本的QDataStream文件格式可能不同。
+		
+			-void setVersion(int v)	//设置读写版本号
+			
+			-int version() const	//获取读写版本号
+			
+			使用例子：
+			
+			setVersion(QDataDevice::Qt_4_7);
+				//读写前设置当前Qt版本。
+
+			

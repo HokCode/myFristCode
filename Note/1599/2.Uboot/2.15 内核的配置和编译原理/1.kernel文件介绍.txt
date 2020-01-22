@@ -1,0 +1,99 @@
+1.linux内核源码目录结构1
+	
+	(1)选择的版本
+		1.linux2.6.35.7版本有3种：kernel.org上的官方版本、三星移植的版本、九鼎X210移植的版本。与uboot相似。
+
+	(2)分析源码目录下的文件
+		
+		.gitignore	版本管理器
+		.mailmap	维护内核的人员信息
+		COPYING		linux内核使用的版权
+		CREDITS		感谢者名单
+		initrd.img.cpio	与传参、设备树有关
+		MAINTAINERS	维护者
+		README		内核说明书
+		REPORTING-BUGS	上报bug
+		
+		Kbuild		kernel build，linux内核编译体系需要的文件
+		Makefile	linux内核的总Makefile
+		mk		移植时自行添加的文件，用于整体管理kernel目录的配置和编译
+	
+	(3)linux内核的配置体系
+		
+		1.linux内核庞大，模块多，可配置性非常高。因此发明了一种体系帮助程序员进行简单化配置。
+
+		2.Kbuild、Kconfig等文件，都是与内核的配置体系有关的。
+
+2.linux内核源码目录结构2
+	
+	(1)分析源码目录下的文件夹
+		
+		arch	
+		architecture，架构。arch中存着不同架构CPU的文件。
+
+		block	
+		块设备。如，SD卡、iNand、Nand、硬盘等，即外部存储器。block中存放着linux存储体系中关于块设备管理的代码。
+		
+		crypto	
+		加密。crypto目录下放了各种常见的加密算法的C语言代码。如：crc32、MD5、shal。
+		
+		Documentation	
+		文档
+		
+		drivers
+		驱动目录。drivers中分门别类的列出了linux内核支持的所有硬件设备的驱动源代码。
+		
+		firmware
+		固件。固件本质是软件，但这个软件时固化到IC内运行的。如:sp5v210里的iROM代码。
+		
+		fs
+		file system，文件系统。fs内列出了linux支持的各种文件系统的实现。
+
+		include
+		头文件目录。include中存放这各种架构公用的头文件。每种cpu架构特有的头文件在arch中。如arm在arch/arm/include目录下。
+
+		init
+		初始化。init中存放着linux内核启动时初始化内核的代码。如：调度系统、内存管理系统等。
+
+		ipc
+		inter process commucation，进程间通知信。ipc中存放着linux支持的ipc代码。
+
+		kernel
+		内核。kernel中存放内核本身需要的一些文件。
+		
+		lib
+		lib，库。lib中存放着有用的公用的库函数。但并非是C语言的标准库函数，因为C的库函数是操作系统基础之上的工作。lib目录下的库函数就是用于替代标准库函数，其作用和名字都是一样的。
+		如：内核中打印信息时不能用printf，而要用printk。
+		
+		mm
+		memory management，内存管理。mm中存放内存管理代码。
+			
+		net
+		网络。net中存放网络相关的代码。如：TCP/IP协议栈。
+
+		samples
+		
+		scripts
+		脚本。scripts中存放这脚本文件，用于辅助linux内核的配置编译。
+
+		security
+		安全相关代码。
+		
+		sound
+		音频处理相关代码。
+
+		tools
+		linux中的用到的一些工具。
+		
+		usr
+		与initramfs相关，和linux内核的启动相关。
+		
+		virt
+		virtual，内核虚拟机相关。
+
+	(2)重要文件夹
+		
+		较重要：arch、drivers
+		有关联：include、block、mm、net、lib
+
+

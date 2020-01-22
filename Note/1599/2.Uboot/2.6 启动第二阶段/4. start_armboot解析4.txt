@@ -1,0 +1,117 @@
+15.start_armboot解析13
+
+	(1)console init_r(第826行)
+		
+		1.控制台第二阶段初始化，完成实质性工作。
+ 
+		2.console的纯软件架构方面的初始化，给console相关的数据结构中填充相应的值。
+
+		3.uboot的console实际上是直接调用串口通信的函数，所以用与不用差别不大。但在linux中console可以提供缓冲机制。
+
+	(2)enable_interrupt(第835行)
+		
+		1.中断初始化函数，这里指的是CPSR总中断标志位的使能。
+		
+		2.因为uboot中没用使能中断，因此没有定义CONFIG_USE_IRQ宏，所以这里的函数enable_interrupt是空函数。
+
+	(3)loadaddr、bootfile两个环境变量(第856行)
+		
+		1.两个环境变量都是内核启动有关的，在启动linux内核时会参考这两个参考变量。
+
+	(4)BOARD_LATE_INIT(第865行)
+		
+		1.开发板级别的晚期初始化函数，指一些必须放在后面的初始化都会在这个函数进行。
+
+		2.对于X210开发板来说，这个函数是空的。
+
+16.start_armboot解析14
+
+	(1)eth_initialize(第872行)
+		
+		1.网卡相关的初始化函数。这里不是SoC与网卡芯片连接时SoC这边的初始化，而是网卡芯片本身的初始化。
+
+		2.对于X210(DM9000)来说，这个函数是空的。X210的网卡初始化在board_init函数中，网卡芯片的初始化在驱动中。
+		
+		3.找函数时分析上面的代码define是否有包含要确定代码正确位置。
+
+	(2)X210_preboot_init(第886行)
+
+		1.在x210开发板启动之前的一些初始化，以及LCD屏幕的logo显示。
+	
+		2.里面调用了函数mpadfb_init。
+
+		mpadfb_init内部：
+			
+			fb_init()		frame buffer帧缓冲相关初始化
+			lcd_port_init()	LCD相关GPIO初始化
+			lcd_reg_init()	LCD相关寄存器初始化
+
+			display_logo()	显示logo函数
+
+	(3)check menukey to update from sd(第891行)
+
+		1.uboot启动的最后阶段设计了一个自动更新功能。程序员可以将需要升级的镜像放到SD卡的固定目录中，开机时在uboot启动的最后阶段会检查升级标志，标志为一个按键(LEFT)。按下表示update mode，未按下表示boot mode。
+
+		2.如果进入update模式，uboot会自动从SD卡中读取镜像文件然后烧录到iNand中。如果进入普通模式，uboot就不会执行update，直接启动并正常运行。
+
+		3.这种机制可以快速烧录系统，常用于量程时用SD卡进行系统烧录部署。
+
+	(4)main_loop死循环
+		
+		1.命令解析器
+		2.开机倒数自动执行
+		3.命令自动补全(tab按键)，install_auto_complete。(uboot不支持)
+
+17.uboot启动第二阶段总结
+	
+	(1)启动流程回顾、重点函数
+		
+		1.第二阶段主要是对开发板级别的硬件、软件数据结构进行初始化。
+		
+		2.重点函数：
+		
+			init_sequence
+				cpu_init 空
+				board_init	网卡、机器码、内存传参地址
+				interrupt_init	定时器timer4
+				env_init	检测全局变量
+				init_baudrate	填充gd数据结构中的波特率
+				serial_init		空
+				console_init_f	空
+				display_banner	打印启动信息(uboot版本等)
+				print_cpuinfo	打印CPU时钟设置信息
+				checkboard		检验开发板名字
+				dram_init		填充gd数据结构中的DDR信息
+				display_dram_config	打印DDR配置信息表	
+
+			mem_malloc_init	初始化uboot自己维护的堆管理器内存
+			mmc_initialize	iNand/SD卡的SoC控制器和本身的初始化
+			env_relocate	环境变量重定位
+			gd->bd->bi_ip_addr	IP Address
+			gd->bd->bi_enetaddr	MAC Address
+			devices_init		空
+			jumptable			没有被调用
+			console_init_r		控制台初始化
+			enable_interrupt	空，uboot没有使用中断
+			loadaddr、bootfile	环境变量读出、初始化全局变量
+			board_late_init		空，硬件在前面已经初始化完
+			eth_initialize		空，用的是其他网卡
+			x210_preboot_init	LCD初始化和显示logo
+			check_menu_update_from_sd	检查自动更新
+			main_loop		uboot工作主循环
+
+	(2)启动过程特征总结
+	
+		1.第一阶段为汇编阶段，第二阶段为C阶段。
+		
+		2.第一阶段在SRAM中，第二阶段在DRAM中。
+		
+		3.第一阶段注重SoC内部、第二阶段注重SoC外部Board内部。
+
+	(3)移植时的重点
+		
+		1.x210_sd.h头文件的宏定义
+		
+		2.了解特定硬件初始化的函数位置(如：网卡)。
+
+

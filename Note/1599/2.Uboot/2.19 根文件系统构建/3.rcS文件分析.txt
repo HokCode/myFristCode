@@ -1,0 +1,125 @@
+6.etc下的rcS文件介绍
+
+	在busybox入口main函数中的parse_inittab：
+
+		new_init_action(SYSINIT, INIT_SCRIPT, "");
+
+		INIT_SCRIPT宏定义为 "/etc/init.d/rcS"，函数在调用rcS文件。
+
+	(1)/etc/init.d/rcS文件
+
+		1.是linux的运行时配置文件etc中最重要的一个，其他一些配置时由它引出的。
+
+	(2)简单的rcS文件配置介绍	
+	
+		1.开头为#!/bin/sh，证明是shell脚本。
+
+	(3)PATH=xxx
+		
+		1.定义了一个变量PATH，值等于xxx。
+
+		2.后面用export导出PATH，使PATH变成环境变量。
+			
+			命令行下可通过export PATH=xxx来设置PATH。
+
+		3.PATH是linux系统内部定义的环境变量，操作系统执行时会到PATH指定目录确认程序是否存在。如果PATH为空，命令就要用全路径才能执行。
+			如：ls需要/bin/ls
+
+		4.busybox中用代码自动导出了一些环节变量(有PATH)，所以rcS文件中没添加PATH，命令也能执行。(代码位于init_main中putenv的几个函数调用)
+
+			putenv((char *) "HOME=/");
+			putenv((char *) bb_PATH_root_path);
+			putenv((char *) "SHELL=/bin/sh");
+			putenv((char *) "USER=root");
+  
+	(4)runlevel=
+
+		1.shell变量，也被导出为环境变量。
+		
+		2.系统的运行级别。
+			
+			init x(x=0~6)命令可以设置runlevel，x=0时为关机。
+
+		3.runlevel=S代表single user mode，普通用户模式。
+
+	(5)prevlevel=
+	
+	(6)umask 022
+
+		1.umask是linux的一个shell命令，设置umask值。
+		
+		2.mask值决定当前用户创建文件夹时的默认权限(r、w、x)。
+
+		3.022代表默认文件权限为644，文件夹权限为755。
+		
+	(7)mount -a
+
+		1.mount命令是用于挂载文件系统的。
+		
+		2.mount -a用于挂载所有应被挂载的文件系统。
+
+		3.busybox中执行这个命令时会去查找etc/fstab文件，其中按一定格式列出了所有应被挂载的文件系统(包括VFS)。
+
+		<file system>	文件系统类型
+		<mount point>	挂载目录
+		<type>			按这个类型挂载
+		<options>		选项
+
+7.rcS实战
+
+	(1)复制好rcS文件发现命令行依然提示不存在，分析后总结：
+	
+		1.shell脚本文件如果格式不对，系统可能认为文件不存在。
+		
+		2.应用程序调用的动态链接库找不到，也会提示该文件不存在。
+
+	(2)PATH&runlevel测试
+		
+		1.PATH在busybox代码中已有导出。
+		
+		2.runlevel执行结果一直未unknown，busybox不支持runlevel特性(阉割版)。
+		
+	(3)umask测试
+		
+		1.umask是022的时候，默认touch创建的文件权限是044。umask的数值与文件权限对应数值加起来为666。
+		
+		2.修改umask的值不会影响之前touch新建的文件权限。
+
+	(4)mount测试
+		
+		挂载时出现错误。
+		mount: mounting proc on /proc failed: No such file or directory
+		1.挂载点就是目标文件系统(这里是VFS)挂载当前FS的某个目录。如/proc目录就是proc文件系统的挂载点。
+
+		2.在rootfs根目录下创建挂载点即可。
+	
+		3.内核启动无报错信息；启动后ls查看proc等文件夹，看到有文件出现。都证明挂载成功。
+
+8.rcS文件介绍2
+	
+	(1)mdev
+
+	echo /sbin/mdev > /proc/sys/kernel/hotplug
+	mdev -s
+		1.mdev是udev的嵌入式简化版，用于配合linux驱动工作的应用层软件，工作时配合linux驱动生成相应的/dev目录下的设备文件。
+
+		2.rcS文件没有添加mdev相关设置时，/dev目录是空的。设置后，/dev中会生成许多设备驱动文件。
+
+	(2)hostname
+		
+	/bin/hostname -F /etc/sysconfig/HOSTNAME
+		
+		1.hostname是linux中的一个shell命令，可以用来设置当前主机名。
+
+			hostname xxx	设置主机名为xxx
+			hostname		显示主机名
+
+		2.-F用于指定主机名的配置文件
+
+	(3)ifconfig
+	
+	ifconfig eth0 192.168.1.10
+		
+		1.用于设置开机后进入命令行时开发板的ip地址。
+
+

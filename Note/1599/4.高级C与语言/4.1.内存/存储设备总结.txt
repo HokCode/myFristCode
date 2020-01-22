@@ -1,0 +1,16 @@
+存储设备总结
+	
+	ROM，Read Only Memory。系统停止供电后可以保持数据。
+	
+	RAM，Random Access Memory。掉电后丢失数据。
+		
+		SRAM，staic RAM。速度快，但价格高。
+		
+		DRAM，dynamic RAM。速度比SRAM慢，比ROM快，但价格便宜。
+	
+			SDRAM
+			DDR SDRAM(DDR RAM),速度比SDRAM快一倍。
+
+	FLASH，闪存。结合了ROM和RAM的长处，不仅具备电子可擦除可编程的性能，还不会断电丢失。	
+
+

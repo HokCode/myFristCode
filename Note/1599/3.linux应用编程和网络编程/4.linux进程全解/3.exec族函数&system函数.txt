@@ -1,0 +1,98 @@
+9.exec族函数与实战1
+	
+	(1)用fork执行子进程
+		1.fork创建子进程目的是为了执行新程序。子进程和父进程可同时被OS调度执行。
+		
+		2.直接在子进程的if中写入新程序代码。这样实现不够灵活，因为需要需要粘贴子进程源代码。
+		
+		3.使用exec族可直接把一个编译好的可执行程序直接加载运行。
+	
+	(2)exec族的6个函数
+		
+		1.execl(l代表list)和execv。最基本的exec族函数：	
+	
+			int execl(const char *path, const char *arg, ...);
+			
+			int execv(const char *path, char *const argv[]);
+			
+			path：需要执行程序的绝对路径。
+			arg：给执行程序传递的参数。可传递多个参数，用逗号间隔，最后需要以NULL结尾。
+
+			*const argv[]：
+			参数放入了一个指针数组，数组不能改变，数组中内容可变。
+
+		2.execlp和execvp。参数接受可执行程序的文件名。
+		
+			int execlp(const char *file, const char *arg, ...);
+			
+			int execvp(const char *file, char *const argv[]);
+		
+			file：函数先寻找file文件名，再去环境变量PATH所指定的目录找，最后两边都找不到才报错。file也可接收文件路径。
+
+		
+		3.execle和execvpe(e代表environment)
+
+			int execle(const char *path, const char *arg, ..., char * const envp[]);   
+			
+			int execvpe(const char *file, char *const argv[], char *const envp[]);
+		
+			envp：用于接收传递的环境变量。这两个函数相对比较少用。	
+
+10.exec族函数与实战1	
+		
+	(1)函数使用例子：
+			
+		1.execl：
+			execl("/bin/ls", "ls", "-l", NULL);
+
+		2.execv：
+			char *const argv[] = {"ls", "-l", NULL}; 
+			execv("/bin/ls", argv);
+
+	(2)execle、execvpe和main函数
+		
+		1.main函数原型：
+		int main(int argc, char **argv, char *enc)
+
+		2.如果在执行程序时没有传递第三个参数，则程序会自动从父进程继承一份环境变量(默认最早来源于OS中的环境变量)。
+
+		3.在使用execle或execvpe时，如果向函数传一个envp数组，即可取代默认的环境变量。
+
+11.进程状态和system函数
+	
+	(1)进程的5种重要状态
+		
+		1.就绪态：进程准备好运行的状态，放在就绪态链表中。CPU可以随时调度就绪态链表中的进程。
+		
+		2.运行态：进程当前正在运行。
+
+		3.僵尸态：进程已经结束，但父进程还没来得及回收。
+
+		4.等待态：进程正在等待某个条件，当这个条件满足后就可进入就绪态。
+		
+			浅度睡眠：进程等待时可通过收到信号或条件满足唤醒。
+			深度睡眠：进程等待时只有到条件满足才会结束等待。
+		
+		5.暂停态(停止态)：进程被信号通知暂停，可被恢复。
+
+	(2)进程各种状态之间可转换
+		
+		1.最简单转换：就绪->运行->僵尸(结束)
+			
+		2.进程有规定的运行时间，如果超过时间会被调回就绪态。	
+
+		3.进程可被信号暂停，也可被信号唤醒回到就绪态。
+
+		4.进程在运行时如果发现条件尚未满足，会进入深度睡眠或者前度睡眠状态。
+
+	(3)system函数简介
+		
+		1.可认为system函数 = fork + exec。但system是原子操作。
+		
+		2.原子操作：原子操作一旦开始就会进行到执行完，中间不能被打断。原子操作不会引来竞争状态，但占用cpu太长会影响系统正题实时性。
+
+		3.函数的使用不需要添加路径，例：
+			
+			system(const char *command);
+			system("ls -al")
+

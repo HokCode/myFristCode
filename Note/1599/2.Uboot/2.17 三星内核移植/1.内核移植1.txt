@@ -1,0 +1,143 @@
+1.内核移植初体验
+	
+	(1)删除无关文件
+		
+		1.arch目录下除了arm的其他文件夹。
+
+		2.arch/arm文件下的mach文件，除了三星芯片外的其他文件夹。
+
+		3.arc/arm文件下的与架构无关的plat文件。
+
+	(2)开始移植
+		
+		1.确认Makefile中的ARCH和CROSS_COMPILE
+			
+			ARCH = arm
+			
+			CROSS_COMPILE = /usr/local/arm/arm-2009q3/bin/arm-none-linux-gnueabi-
+
+		2.在arch/arm/configs配置下找到适合开发板的配置
+			
+			make + smdkv210_android_defconfig
+
+		3.make menuconfig
+
+			精修配置。	
+		
+		4.make -j4
+			
+			默认情况下make指挥单线程编译。make -j4，会4线程编译。
+			
+	(3)后续
+		
+		1.编译后得到zImage下载运行，观察结果。
+		
+		2.从结果分析问题，解决问题。
+
+2.初步移植
+	
+	从运行结果分析问题
+	
+	(1)分析一
+		
+		现象：串口打印出starting kernel ...后没有后续。
+
+		分析：
+		
+			1.linux内核的自解压代码没有运行，说明zImage没有解压成功。
+			2.内核配置的解压后代码没有放在正确的链接地址。
+
+		解决方法：
+		
+			3.确认内核中的链接地址。
+			4.确认内核中配置的解压地址。
+				
+		注意：
+			5.内核的链接地址是一个虚拟地址，但解压代码解压内核时需要物理地址。所以内核的解压地址应该是链接地址虚拟地址对应的物理地址。
+
+		解决问题：
+			
+			6.通过head.S可确认内核的链接地址对应的物理地址是30008000。
+			
+			7.自解压代码对应的自解压地址在arch/arm/mach-s5pv210目录的Makefile.boot文件中。
+				zreladdr-y：	配置的自解压地址。
+				params_phys-y：	参数地址。
+
+		结果：
+			8.内核自解压后开始运行，但最后没有运行成功。
+			
+3.内核机器码的确定(插播)		
+
+	(1)MACHINE_START宏用来定义一个机器码的数据结构。
+	
+		
+		MACHINE_START(SMDKV210, "SMDKV210")
+			/* Maintainer: Kukjin Kim <kgene.kim@samsung.com> */
+			.phys_io	= S3C_PA_UART & 0xfff00000,
+			.io_pg_offst	= (((u32)S3C_VA_UART) >> 18) & 0xfffc,
+			.boot_params	= S5P_PA_SDRAM + 0x100,
+			.init_irq	= s5pv210_init_irq,
+			.map_io		= smdkv210_map_io,
+			.init_machine	= smdkv210_machine_init,
+		#ifdef CONFIG_S5P_HIGH_RES_TIMERS
+			.timer		= &s5p_systimer,
+		#else
+			.timer		= &s3c24xx_timer,
+		#endif
+		MACHINE_END
+
+	解析：
+		
+	MACHINE_START：
+
+		#define MACHINE_START(_type,_name)			\
+		static const struct machine_desc __mach_desc_##_type	\
+		 __used							\
+		 __attribute__((__section__(".arch.info.init"))) = {	\
+			.nr		= MACH_TYPE_##_type,		\
+			.name		= _name,
+
+	MACHINE_END：
+
+		#define MACHINE_END				\
+		};
+		
+	替代后：
+	
+		#define MACHINE_START(SMDKV210,"SMDKV210")			\
+		static const struct machine_desc __mach_desc_SMDKV210	\
+		 __used							\
+		 __attribute__((__section__(".arch.info.init"))) = {	\
+			.nr		= MACH_TYPE_SMDKV210,		\
+			.name		= "SMDKV210",
+			.phys_io	= S3C_PA_UART & 0xfff00000,
+			.io_pg_offst	= (((u32)S3C_VA_UART) >> 18) & 0xfffc,
+			.boot_params	= S5P_PA_SDRAM + 0x100,
+			.init_irq	= s5pv210_init_irq,
+			.map_io		= smdkv210_map_io,
+			.init_machine	= smdkv210_machine_init,
+		#ifdef CONFIG_S5P_HIGH_RES_TIMERS
+			.timer		= &s5p_systimer,
+		#else
+			.timer		= &s3c24xx_timer,
+		#endif
+		};
+	
+
+	总结：
+	
+	1.定义了一个结构体类型为machine_desc类型的结构体变量，名为：	 __mach_desc_SMDKV210。结构体会被定义到特定段：.arch.info.init。
+	
+	2.对应head.S中的__lookup_machine_type函数：在.arch.info.init段中寻找机器码。机器码.nr赋值了一个宏MACH_TYPE_SMDKV210，在kernel/include/generated/mach-type.h中定义为2456。
+
+	3.每个mach-xxx.c文件中都各自定义了一个机器码的开发板的machine_desk结构体变量。
+
+	4.所以移植内核时，需要自行添加开发板对应的mach-xxx.c文件。可通过借鉴mach-smdkc110.c来移植。确定原则：与当前开发板最相似。Makefile中可看出CONFIG_MACH_SMDKV210宏绑定的是mach-smdkc110.o。
+
+	(2)修改mach-smdkc110.c
+		
+		
+		1.硬件驱动的加载和初始化函数的执行
+		
+			.init_machine	= smdkc110_machine_init,		
+			硬件初始化函数。绑定了linux内核启动过程中需要初始化的硬件。

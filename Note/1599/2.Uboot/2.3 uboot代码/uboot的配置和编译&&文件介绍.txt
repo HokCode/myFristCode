@@ -1,0 +1,182 @@
+1.2.X210官方uboot配置编译实践
+	
+	(1)网上下载官方移植好的uboot
+	
+		1.3种获取途径：uboot官方、SoC官方、具体开发板厂商的官方
+	
+	(2)在linux源生目录下配置编译
+		 
+		1.BSP，board support package。板级支持包，包含开发板的所有相关源代码、文档等。	
+	
+		2.解压代码: tar -jxvf 压缩包名
+	
+	(3)配置uboot
+		
+		1.uboot和linux kernel等复杂项目，都要先进行配置再编译。
+		
+		2.配置uboot	
+		
+			进入uboot源码的根目录，在根目录下执行：make x210_sd_config。
+			
+	(4)编译得到uboot.bin	
+	
+		1.检查交叉编译工具链arm-linux-gcc是否正确。我们装的是arm-2009q3。
+		
+		2.确保交叉编译工具链装在正确的目录，我们是uboot根目录的147行。
+	
+		3.编译方法：
+			
+			(1)直接make。
+			
+			(2)make -j4。多线程编译，针对主机是多核心电脑。j4为双核4线程。
+	
+3.uboot源码目录分析——文件介绍
+		
+	(1)九鼎以三星的uboot为原材料进行移植，把很多不必要的文件夹、文件给删除掉了。
+	
+	(2)各文件介绍
+		
+		.gitignore。	git工具的文件(与snv类似,git是一个版本管理工具)。这个文件与git有关，和uboot本身无关。
+		
+		arm_config.mk	后缀为mk，是一个Makefile文件，将来在某个Makefile会去调用它。
+	
+		三个CHANGELOG	修改记录文件，记录了这个uboot项目的版本变迁以及每个版本较上个版本修改的记录。主要给维护uboot的人使用。
+
+		config.mk	与arm_config.mk类似。
+		
+		COPYING		版权声明，uboot本身是GPL许可证的。
+		
+		CREDITS		对uboot有贡献的人的感谢目录。
+
+		image_split	bash脚本。用来分割uboot.bin到BL1。
+		
+		MAINTAINERS 当前参与维护uboot源码的社区工作者。
+	
+		MAKEALL		帮助编译uboot的脚本。
+		
+		Makefile	uboot源代码的主Makefile，管理整个uboot的编译。
+		
+		mk			快速编译脚本。自动执行：清理、配置、编译三步。
+		
+		mkconfig	uboot配置阶段的主要配置脚本，维护uboot的可移植性。
+	
+		mkmovi		与iNand和SD卡启动有关。
+		
+		README		使用说明书。
+		
+		rules.mk	Makefile使用的规则。
+	
+4.uboot源码目录分析——文件夹介绍	
+	
+	(1)文件夹介绍
+		
+		api		硬件无关的功能函数的API。uboot本身使用，uboot移植时基本用不到。
+		
+		api_examples	API相关的测试示例代码。
+		
+		board	
+			每个文件夹代表一个开发板，其内部的文件都是来描述对应开发板的。所以board目录有多少个文件夹，就表示当前uboot支持多少种开发板。可以理解为版本。
+		
+		common				
+			common字面意思普通。该文件存放与具体硬件无关的普遍适用的一些代码。如，控制台实现、crc校验。主要是两类：cmd开头，实现uboot的命令系统；env开头，实现环境变量。
+		
+		cpu		
+			存放与SoC初始化和控制相关的代码。如，CPU、中断、串口等SoC内部外设，包括start.S也在这里。每个文件夹对应一个SoC系列。因为X210开发板与三星开发板SoC相同，所以这个目录不必太多修改。
+
+		disk	磁盘有关。
+
+		doc		文档目录，存放uboot相关文档。
+		
+		drives	
+			驱动，存放从linux源代码中移植的linux设备驱动。如，网卡、flash、iNand/SD卡、NandFlash等驱动。所以uboot中的驱动是linux中驱动的一部分。
+		
+		examples	
+			
+			存放示例代码
+		
+		fs	filesystem	
+			
+			文件系统。从linux源代码移植，用来管理Flash等资源。
+		
+		include		
+			
+			头文件目录。uboot和linux kernel在管理头文件时相同，所有头文件都集中存放在include目录下。
+		
+		lib_xxx		
+			lib开头的若干文件。典型的有lib_arm和lib_generic，与CPU架构相关的库文件。lib_arm中是arm架构使用的一些库文件；lib_generic中是所有架构通用的一些库文件。
+		
+		libfdt	
+		
+			设备树有关。linux内核在3.4版本后版本改用了设备树来进行启动传参和硬件信息的描述。
+			
+		nand_spl	nand相关
+
+		net
+			
+			网络相关的代码，如uboot中的tftp、nfs、ping命令等都在这里实现的。
+			
+		onenand_xxx
+			
+			存放onenand代码。三星公司加的，标准uboot没有。
+			
+		post	
+			
+		sd_fusing	
+		
+			存放实现烧录uboot镜像到SD卡的代码。	
+		
+		tools	
+			
+			存放工具类的代码。如，mkimage。
+			
+	(2)重要文件夹
+		
+		board、common、cpu、drivers、include、lib_arm、lib_generic、sd_fusing
+	
+	(3)再说uboot配置
+	
+		1.配置阶段本质就是根目录下mkconfig脚本和makefile中配置有关的部分。主要是帮程序员在可移植性领域确定具体的文件夹路径，编译时不会报错。
+	
+
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	

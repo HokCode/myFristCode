@@ -1,0 +1,104 @@
+2.busybox移植
+
+	(1)busybox源码下载
+		
+		1.busybox是一个开源项目可在网络下载。可去linuxidc镜像网站或官网www.busybox.net下载。
+		
+	(2)修改Makefile
+		
+		1.busybox编写时也是模仿linux内核的体系，所以移植时与移植kernel类似。
+		
+		修改：
+		
+		ARCH = ARM
+		CROSS_COMPILE =/usr/local/arm/arm-2009q3/bin/arm-none-linux-gnueabi-
+
+
+	(3)make menuconfig进行配置
+		
+		1.因为busybox配置项没有内核多，所以直接细节配置。(参考文件)
+
+		Build BusyBox as a static binary(no shared libs)
+			把busybox配置成静态链接库。 
+
+		vi-style line editing commands
+			选择vi风格的命令行。
+		
+		与驱动开发模块化有关：
+		Linux Module Utilities--->
+		[ ]Simplified modutils	简化modutil工具。
+		[*]insmod
+		[*]rmmod
+		[*]lsmod
+		[*]modprobe
+		[*]depmod 
+
+	(4)make编译，然后make install
+		
+		make install
+		
+		1.执行的是busybox顶层目录下的一个install。命令用于安装软件，安装的目的是将编译生成的可执行程序即其依赖的库文件、配置文件、头文件安装到当前系统指定(或默认)目录下。
+		
+		2.在make menuconfig中busybox setting中的installation options修改安装目录为根文件系统目录。出现busybox代表安装成功。
+		
+	(5)设置bootargs，挂载添加busybox移植的rootfs
+		
+3.inittab详解
+	
+	上节回顾：
+		移植busybox后：rootfs挂载成功，linuxrc启动成功。
+
+	问题：
+		命令行不断打印找不到文件信息。
+
+	(1)添加一个典型的inittab
+		
+		1.在rootfs目录下创建一个文件下etc，把inittab放入etc中。
+
+		2.重新启动并挂载rootfs后成功进入控制台命令行，代表制作最小的rootfs成功。
+
+	(2)inittab格式解析
+		
+		1.inittabl的工作原理是被/linuxrc(busybox)执行时所调用时起作用。
+
+		2.在/etc目录下，所以属于一个运行时配置文件，是文本格式的。实际工作时busybox会按照一定格式解析这个inittab文本文件，从而决定如何工作。
+		
+		3.inittab的格式是在busybox中定义的:
+		
+			第一：#代表的是注释	
+			
+			第二：冒号为分隔符，分隔开各部分。
+			
+			第三：inittabl内容是以行为单位的，行之间无关联。每行都是一个独立的配置项，每个配置项表示一个具体的含义。
+
+			第四：每一行的配置项都是3个冒号分隔开的4个配置值:id:runlevels:action:process。其中部分配置值可省略，但冒号不能省略。 
+				
+				id：由1~4个字符组成，用来唯一标识条目。可省略。
+			
+				runlevels：运行级别，用来指定该条目适用于哪种运行级别。省略表示适用于0~6的运行级别。
+			
+				action:表示操作。(条件/状态)
+				
+				process：表示该条目要执行的进程。(脚本文件即程序)
+	
+				可理解为：当满足action的条件时就执行process程序。
+		
+		注意：busybox最终会进入一个死循环，死循环中会反复检查是否满足某一action的条件。如果满足就会去执行对应的process。
+
+		(3)分析加入的inittab
+			
+			::sysinit:/etc/init.d/rcS
+				指定进程rcS在控制台初始化之前执行。
+
+			::askfirst:-/bin/sh
+				类似respawn，主要用途是减少系统上执行的中断应用程序数量。会促使init在控制台上显示:"Please press Enter to activate this console"。
+			
+			::ctrlaltdel:-/sbin/reboot
+				当键盘上同时输入crtl+alt+del会重启。
+			
+			::shutdown:/bin/umount -a -r
+				在关机前执行取消挂载。-a和-r是参数
+
+			::restart:/sbin/init
+				当重启系统时执行init。
+

@@ -1,0 +1,173 @@
+4.zImage启动前校验
+	
+	do_bootm函数:
+	
+	(1)(第135行)
+		1.从开始的137~397行的after_header_check符号处都是在做镜像的头部信息校验。代码会根据不同种类的image类型进行不同校验。
+
+		2.函数的核心就是分辨出image的类型，然后按照对应类型的文件头信息格式进行校验。
+
+	(2)zImage代码
+		
+		1.(第197行)#define LINUX_ZIMAGE_MAGIC 0x016f2818
+			
+			a.定义一个魔数，表示zImage镜像。即zImage格式的镜像在头部的一个固定位置存着这个数作为标记。程序可取镜像固定位置取4个字节进行对比从而确定是否为zImage。
+
+		2.(第199行)命令为bootm 0x30008000时，do_boom的argc=2，argc[0]=bootm。但实际上bootm命令可以不带参数，如果不带参数bootm会从CFG_LOAD_ADDR地址去执行。
+
+		3.(第209行)zImage代码头部开会的第37~40字节处存放着zImage标志的魔数。拿其与LINUX_ZIMAGE_MAGIC进行对比校验。
+	
+		4.(第212行)image_header_t。这个结构体就是zImage的标准头。zImage的头信息就是按照这个结构体封装的。
+
+			hdr = (image_header_t *)addr;
+			hdr->ih_os = IH_OS_LINUX;
+			hdr->ih_ep = ntohl(addr);
+			
+			分析：
+				校验并确认是zImage后，修改zImage的头信息；
+				然后用改好的头信息初始化images中的变量，校验完毕。
+
+5.uImage启动前校验
+	
+	(1)uImage启动
+		
+		do_bootm函数:
+		1.(第237行)LEGACY(遗留的)。在do_bootm函数中，uImage启动方式是uboot本身发明的支持linux启动的镜像格式，称为LEGACY方式。
+	
+		2.(第246行)目前有新的方式：设备树方式。在do_bootm函数中，称为FIT。FIT方式是比较新的方式。
+
+		3.(第228行)uImage的启动校验的工作主要在boot_get_kernel函数中，函数的主要任务是校验uImage的头信息。
+
+			boot_get_kernel函数：
+			
+			(第600行)genimg_get_image：
+				
+				调用genimg_get_format，打印get_format。
+				对image进行头校验。
+				打印format格式(0、1、2)
+			
+				调用d_size = image_get_data_size，获取image大小
+		
+			(第606行)printf ("## Booting kernel from Legacy Image at %08lx ...\n",img_addr);
+				
+				打印信息，img_addr地址为30008000。
+				
+			(第608行)hdr = image_get_kernel (img_addr, images->verify);
+					
+				继续校验魔数位。
+				
+				调用image_print_contents函数，打印Image Name等信息。
+				校验CRC，校验通过打印OK。	
+				校验目标CPU架构(这里是arm)。
+
+		4.(第320行)IH_COMP_NONE，Image自带解压代码。
+
+			printf ("   XIP %s ... ", type_name);	打印信息
+			
+	总结一：
+		uboot本身只支持uImage启动，后来增多了许多方法：
+			1.增多了设备树方式fdt，所以把原来的uImage命名为LEGACY方式；把fdt方式命名为FIT方式。把新代码用#if和#endif控制嵌入原来的uboot。			
+			2.增多了zImage启动方式，也用相同方式卸载uImage和fdt之前。
+
+	总结二：
+		第二阶段校验头信息结束。
+		第三阶段调用do_bootm_linux函数来完成，主要任务是准备传参和启动linux内核。
+
+6.do_bootm_linux函数
+	
+	(1)函数位置在uboot/lib_arm/bootm.c中。
+
+	(2)(第78行)镜像的entrypoint
+
+		1.ep是entrypoint的缩写，表示程序的入口。镜像文件的起始执行部分其实在镜像中部的某个字节处，与文件头有一定偏移量(这个偏移量记录在头信息中)。
+	
+		2.执行镜像步骤：
+			第一步：读取头信息，在头信息特定地址读取MAGIC_NUM，确定镜像种类。
+			第二步：对镜像进行校验(crc校验)，确定镜像是否完整。
+			第三步：再次读取头信息获得镜像各种信息(长度、种类、ep)。
+			第四步：在entrypoint处开始执行镜像。
+
+		3.(第92行)theKernel = (void (*)(int, int, uint))ep;
+
+			把ep赋值给theKernel，函数指向了内存中加载的镜像真正的入口地址。
+
+	(3)机器码的再次确定
+		
+			s = getenv ("machid");
+			if (s) {
+				machid = simple_strtoul (s, NULL, 16);
+				printf ("Using machid 0x%x from environment\n", machid);
+			}
+		1.uboot在启动内核时，机器码要传给内核。uboot确定机器码的方式有2种：
+			第一种：环境变量的machid。(优先级更高)
+			第二种：gd->bd->bi_arch_num。(x210_sd.h中硬编码配置的)
+	
+	(4)传参并启动
+		
+		1.(第110~144行)就是uboot在对给linux内核准备传递的参数进行处理。
+
+		2.(第147行)printf ("\nStarting kernel ...\n\n");
+		
+			a.uboot最后一句打印出来的信息。如果出现了说明：uboot成功运行；内核镜像成功加载、校验通过并找到入口地址了。
+			
+			b.如果还是没有成功启动内核，一般因为：传参、内核在DDR中的加载地址。
+				
+7.传参详解(第110~144行)
+	
+	(1)tag方式传参
+		
+		1.struct tag，tag是一个数据结构，在uboot和linux kernel中都有一样的定义。
+
+		2.tag_header和tag_xxx。tag_header中有这个tag的size和类型。kernel拿到一个tag后先分析拿到的tag的size和类型，剩余部分当做tag_xxx来处理。
+
+		3.tag_start和tag_end。kernel接收到的传参是若干个tag构成的，这些tag由tag_start起始，起始tag为ATAG_CORE；到tag_end结束，结束tag为ATAG_NONE。
+
+		4.tag传参方式是由linux kernel发明的。
+
+	(2)x210_sd.h中配置传参宏
+		
+		1.CONFIG_SETUP_MEMORY_TAGS，tag_mem。传参内容是内存配置信息。
+
+		2.CONFIG_CMDLINE_TAG，tag_cmdline。传参内容是启动命令行参数，即uboot环境变量的bootargs。
+
+		3.CONFIG_INITRD_TAG，内存磁盘。ram disk。
+		
+		4.CONFIG_MTDPAPRTITION，传参内容是iNand/SD卡的分区表。
+		
+	(3)patams指针
+		
+		1.(第56行定义)static struct tag *params;
+
+		2.(第176行实例化和填充)
+
+		{
+			params = (struct tag *) bd->bi_boot_params;	
+				实例化uboot给内核的传参会放在bd->bi_boot_params这地址.
+			
+			params->hdr.tag = ATAG_CORE;	起始地址
+			params->hdr.size = tag_size (tag_core);	tag_core大小
+
+			params->u.core.flags = 0;
+			params->u.core.pagesize = 0;
+			params->u.core.rootdev = 0;
+				
+			params = tag_next (params);	}
+			
+		3.其余tag分析类似。
+			
+	(4)uboot调用thekernel
+
+		theKernel (0, machid, bd->bi_boot_params);
+		
+		1.uboot调用次函数并传递3个参数，传递方式是通过寄存器，3个参数分别放在r0、r1、r2。
+
+		第一个参数：固定为0
+		第二个参数：机器码
+		第三个参数：所有tag信息的首地址
+
+	(5)移植时注意事项
+		
+		1.uboot移植时一般只需要配置相应的宏即可。			
+		
+		2.kernel启动不成功可考虑传参是否出错。传参首先看uboot中的bootargs设置是否正确，再看宏是否包含正确。
+

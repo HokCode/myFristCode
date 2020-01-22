@@ -1,0 +1,152 @@
+1.uboot与linux驱动
+	
+	驱动定义：操控硬件的代码。
+	
+	(1)uboot本身是裸机程序
+	
+		1.裸机本来是没有驱动这个概念的。狭义的驱动概念是指操纵系统中用来具体操控硬件的那部分代码。
+		
+		2.裸机程序是直接操控硬件，操作系统是必须通过驱动来操控硬件。两者的区别是分层。
+
+	(2)uboot的虚拟地址对硬件操作的影响
+		
+		1.操作系统(linux)下MMU是开启的，所以驱动中使用的都是虚拟地址。
+
+	(3)uboot借用(移植)了linux驱动
+		
+		1.linux驱动本身做了模块化设计。linux驱动本身和linux内核不是强耦合的，这使linux驱动可以被uboot移植。
+		
+		2.uboot是从linux源代码移植linux驱动的(linux系统的开源性)。
+
+		3.因为uboot本质本质上只是一个裸机程序，只移植了linux驱动的一部分。所以uboot中的硬件驱动比linux简单。
+
+2.iNand/SD驱动解析1
+	
+	先分析start_armboot
+
+	(1)mmc_initialize(board.c第1177行)
+		
+		1.函数位于：uboot/driver/mmc。
+
+		2.函数作用是初始化开发板上的MMC系统。包含：SoC内的MMC控制器初始化、MMC系统时钟和SFR初始化、MMC相关的GPIO初始化、SD卡/iNand芯片的初始化。
+
+		3.mmc_devices(第1182行)，
+		一个链表的变量。用来记录系统中所有已经注册的SD/iNand设备。向系统中每插入一个SD卡/iNand设备，系统就会向该链表插入一个数据结构表示对应设备。
+
+		4.board_mmc_init(第1185行)
+		返回值确定为-1
+
+		5.cpu_mmc_init(第1186行)在cpu/s5pc11x/cpu中
+		其中调用了三个函数：
+		
+			setup_hsmmc_clock();在cpu/s5pc11x/set_hpmmc.c中
+			highspeech mmc clock。初始化SoC中MMC控制器时钟部分的函数。
+			
+			setup_hsmmc_cfg_gpio();在cpu/s5pc11x/set_hpmmc.c中
+			用来配置SoC中MMC控制器相关寄存器。
+			
+			return smdk_s3c_hsmmc_init();
+			
+2.iNand/SD驱动解析2	
+
+	(1)详细分析smdk_s3c_hsmmc_init函数
+		
+		1.smdk是三星开发板前缀。位于uboot/driver/mmc/s3c_hsmmc.c中
+		
+		2.内部通过宏定义USE_MMCx来决定是否调用s3c_hsmmc_initialize函数。
+
+		s3c_hsmmc_initialize函数
+
+		1.struct mmc结构体指针
+		把mmc所有信息及其操作函数方法都包含在一个结构体中，类似一个类。
+		
+		2.mmc = &mmc_channel[channel];
+		让指针指向一个有意义的内存，然后填充结构体内的成员。最后调用mmc_register函数来向驱动框架注册这个mmc设备驱动。
+		注册方法就是将struct mmc使用链表连接到mmc_devices全局变量中，让系统将来可以检索到。
+		
+		以上为cpu_mmc_init函数所有内容。
+
+	(2)find_mmc_device(mmc_initialize内1193行)
+		
+		1.函数位于uboot/driver/mmc/mmc.c中。
+	
+		2.函数是通过mmc设备编号来在系统中查找对应的mmc设备。(mmc设备即mmc结构体的对象，根据上面分析系统中有2个设备编号，分别是0和2)
+	
+		3.函数工作原理就是通过遍历mmc_devices链表，去依次寻找系统中注册的mmc设备，然后对比其设备编号进行对比。最后返回对应的mmc设备，再用mmc_init函数来初始化它。
+	
+	(3)mmc_init
+		
+		1.函数位于uboot/driver/mmc/mmc.c中。
+		
+		2.此函数要进行mmc卡的初始化。
+
+		mmc_go_idle(mmc_init第1122行)
+			
+			函数目的是让mmc卡进入空闲状态。
+			
+			调用mmc_send_cmd函数(mmc_go_idle第212行)，向mmc卡发送命令。
+
+			cmd.opcode = MMC_CMD_GO_IDLE_STATE;
+			cmd.arg = 0;
+			cmd.resp_type = MMC_RSP_NONE;
+			cmd.flags = 0;
+
+			err = mmc_send_cmd(host, &cmd, NULL);
+		
+		分析：	
+		
+		a.函数内部都是类似的结构。
+		b.mmc_init函数内部就是依次通过向mmc卡发送命令码(CMD0、CMD1)来初始化SD卡/iNand内部的控制器。
+
+	(4)最后打印出SD卡/iNand的大小
+		
+		printf("%ldMB\n", (mmc->capacity/(1024*1024/(1<<9))));
+	
+
+总结：	
+
+	整个MMC系统初始化分为2大部分：
+		
+		1.SoC这一端的MMC控制器的初始化。(主要函数cpu_mmc_init)
+		2.SD卡本身的初始化。(主要函数mmc_init)
+
+	初始化完成后，操作SD卡的方法也是通过总线向SD卡发送命令、读写数据来完成(类似mmc_init函数内部)。
+
+	struct mmc结构体是关键。两部分初始化之间用mmc结构体来连接的，初始化完成后对mmc卡的常规读写操作也是通过mmc结构体来连接的。
+
+4.iNand/SD驱动解析3
+	
+	(1)struct mmc
+		
+		1.驱动的设计中有一个关键数据结构。譬如MMC驱动的结构体是struct mmc。结构体中包含一些成员属性(变量)和一些函数指针。
+
+		变量：记录启动相关的属性。
+		函数指针：驱动相关的操作方法。
+
+		2.一个驱动工作时主要分以下部分：
+		
+		驱动初始化：构建一个struct mmc结构体并填充它。(也称驱动构建)
+		驱动运行时：调用这些函数指针的函数和变量。
+
+	(2)分离思想
+	
+		1.将操作方法(函数)和数据(变量)分开。在不同的地方来存储和管理驱动的操作方法和变量，优势是便于移植。
+
+	(3)分层思想
+		
+		1.指一个驱动分为很多个层次。即驱动分为很多源文件，放在很多文件夹中。如mmc的驱动设计到drivers/mmc中的文件和cpu/s5pc11x中的文件。
+
+		以mmc驱动为例：
+			uboot/drivers/mmc/mmc.c：本文件主要内容是MMC卡有关的操作。如：设置mmc卡设置空闲状态、卡读写数据等。但是文件中有关具体硬件操作的函数都是函数指针，指向struct mmc结构体中的对象(真正操作硬件的函数)。
+
+			uboot/drivers/mmc/s3c_hsmmc.c：本文件主要内容是SoC内部MMC控制器的硬件操作函数。如发送命令函数、SD卡读写数据。
+			
+			cpu/s5pc11x/cpu.c：其中的cpu_mmc_init也有和MMC驱动有关。但因为里面有两个函数setup_hsmmc_clock和setup_hsmmc_cfg_gpio都是和SoC有关的函数，所以没有放入drivers目录下。
+		
+		2.分析
+			mmc.c和s3c_hsmmc.c构成一个分层。mmc.c中调用了s3d_hsmmc.c中的函数，mmc.c在上层，s3c_hsmmc.c在下层。两者之间互相不涉及各自的操作。
+
+			分层结构方便移植，例：
+			
+			如果要把一套mmc驱动移植到别的SoC上，只需要动s3c_hsmmc.c。
+			如果同一SoC的SD卡升级了，只需要动mmc.c。

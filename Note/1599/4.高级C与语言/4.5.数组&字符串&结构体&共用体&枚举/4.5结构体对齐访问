@@ -1,0 +1,53 @@
+#include<stdio.h>
+
+struct mystuct1
+{
+	int a;
+	double b;
+	char c;
+};
+
+struct mystuct2
+{
+	int a;
+	char c[5];
+};
+
+struct mystuct3
+{
+	int a;
+	char c[6];
+};
+
+struct mystuct4
+{
+	char a;
+	char b;
+};
+
+struct mystuct5
+{
+	int a;
+	char b;
+};
+
+int main(void)
+{	
+	//4字节对齐
+	
+	struct mystuct1 s1;
+	struct mystuct2 s2;
+	struct mystuct3 s3;
+	struct mystuct4 s4;
+	struct mystuct5 s5;
+	
+	printf("*sizeof(s1) = %d\n",sizeof(s1));	//	16
+	printf("*sizeof(s2) = %d\n",sizeof(s2));	//	12
+	printf("*sizeof(s3) = %d\n",sizeof(s3));	//	12
+	printf("*sizeof(s4) = %d\n",sizeof(s4));	//	2
+	printf("*sizeof(s5) = %d\n",sizeof(s5));	//	8
+	
+
+	return 0;
+}
+

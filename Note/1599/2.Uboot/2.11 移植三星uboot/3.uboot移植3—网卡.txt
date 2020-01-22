@@ -1,0 +1,133 @@
+9.网卡驱动移植1
+	
+	(1)网卡芯片与开发板的连接方式
+		
+		1.X210开发板用的网卡芯片是DM9000。与SoC属于总线式连接。
+
+		2.SoC的SROM(SRAM和ROM的合称)bank和网卡芯片的CS引脚相连。
+			SoC的SROMControl其实就是SoC提供的对外总线式连接SRAM/ROM的接口。如果SoC需要外接一些SROM的存储芯片(或伪装成SROM接口的芯片，如网卡)，就要通过SROMControl。
+
+		3.这样连接网卡就会像存储芯片一样被扩展在SoC的一个地址空间(SROM_BANKx)中，主机SoC可以用地址接访问网卡芯片的内部寄存器。
+
+		4.SoC访问网卡芯片00寄存器时都是用相对地址的：起始地址+偏移量。起始地址是指网卡芯片对应SROM bankn的地址。SoC就是通过操作网卡芯片内部的寄存器和缓冲区等来上网的。逻辑上网卡类似串口。
+
+	(2)分析原理图
+		
+		1.X210的SROM控制器允许8/16bit的接口，实际使用的是16位接口。
+
+		2.网线有8根线。4根是有效通信线；其他4根都是GND，用于抗干扰。
+
+			4根通信线：Tx-和T+(发送)；Rx-和Rx+(接收)。因为网线上传输的是差分信号(通过电压差来表达0或1)。
+
+		3.CS引脚(chip select)
+
+			a.片选使能信号，(主机)SoC向CS发送有效信号则从机芯片(DM9000)工作，发送无效信号则从机芯片不工作。高/低电平有效取决于芯片本身。CS要接SoC的片选信号引脚。
+		
+			b.主机S5PV210的SROMx bank都有一个片选信号CSx(x=0~5)。DM9000原理图上可看出CS引脚接到了CSn1上，对应SROM bank1。(地址为88000000~8FFFFFFF)
+
+		4. CMD引脚
+
+			a.CMD引脚接到了总线上的地址线ADDR2。DM9000为了减少芯片引脚，数据线和地址线都是复用的(DATA0~DATA15有时做数据线有时做地址线)。
+
+			b.当CMD引脚是高电平时，DATA0~DATA15传送数据；低电平时，DATA0~DATA15传送地址(INDEX索引、offset偏移量)。
+
+10.网卡驱动移植2
+	
+	(1)网卡驱动文件介绍
+		
+		1.uboot提供了许多网卡驱动芯片的驱动程序，在drivers/net目录下。驱动来自于linux kernel源代码。
+
+		2.DM9000驱动可在uboot中直接使用。因为linux驱动设计时数据(硬件结构提供)和代码(驱动)都是分开的，所以驱动具有一定的可移植性。
+		
+	(2)网卡移植的关键：初始化
+		
+		1.uboot在第二阶段init_sequences中有网卡芯片的初始化。初始化完毕后，驱动就能工作了。
+		
+			网卡初始化代码位置：				
+				init_sequences
+					board_init(位于smdk110.c)
+						dm9000_pre_init(网卡初始化函数)
+
+		2.分析dm9000_pre_init函数
+		
+			a.先用宏DM9000_16BIT_DATA来判断是否在16位总线下。
+				
+			SROM_BW寄存器
+				从0~23，每4个bit位来设置一个blank。X210的网卡芯片是接在blank1的，所以我们应该设置bit[7:4]。
+					
+				bit[4]DataWidth：数据总线宽度。16bit。
+				
+				bit[5]AddrMode：0代表半字(16字节)对齐；1代表字节对齐。DM9000为SD0对应DATA0，所以为1。
+		
+				bit[7:6]WaitEnable和ByteEnable：都是时序相关位。DM9000都设置为1。
+					
+				SROM_BW_REG &= ~(0xf << 4);
+				SROM_BW_REG |= (1<<7) | (1<<6) | (1<<5) | (1<<4);
+			
+			SROM_BCn寄存器
+				
+				使用的是SROM_BC1。所以直接SROM_BC5把改成SROM_BC1即可。
+
+			MP01CON寄存器
+				
+				属于GPIO。其中MP0_1CON[1],bit[7:4]控制blank1的CS片选引脚。写入0010设置为SROM_CSn[1]。
+
+	(3)基地址的配置
+			
+		1.驱动的代码不需要修改，但数据需要修改。在配置文件smdkv210single.h第134行中修改驱动的数据。
+
+			CONFIG_DM9000_BASE：DM9000网卡通过SROM bank映射到SoC中的地址。
+			DM9000_IO：地址和命令
+			DM9000_DATA:数据	
+
+		2.CMD引脚。
+			
+			#define DM9000_IO			(CONFIG_DM9000_BASE)
+			#if defined(DM9000_16BIT_DATA)
+			//#define DM9000_DATA			(CONFIG_DM9000_BASE+2)
+			#define DM9000_DATA			(CONFIG_DM9000_BASE+4)
+			
+			分析：
+			
+			传命令时基地址+0：这时ADDR2(bit2)为0，此时DATA线传的是命令。
+			传数据时基地址+4：4的二进制是0100，即ADDR2(bit2)为1，此时DATA线传的是数据。
+
+	(4)实际工作问题
+		
+		1.测试时发现：要将CONFIG_DM9000_BASE改为88000300才能工作。
+
+		分析：	
+			
+		与DM9000网卡芯片型号版本有关，可能X210的版本本身寄存器就有0300的偏移量。X210V3S开发板可以工作。
+
+			sudo ifdown eth0
+			sudo ifup eth0
+	
+11.网卡驱动如何工作
+	
+	(1)linux系统中网卡驱动的典型工作方式简介
+		1.linux系统中，网卡算是一个设备。这个设备驱动工作后会生成一个设备名叫ethn(n=0、1、2...)；无线网卡名字一般为wlan0、wlan1。
+
+		2.linux下应用程序一般使用socket接口来使用网卡驱动，从而进行网络通信。socket内部是间接调用网卡驱动实现网络通信的。
+		
+		3.linux的应用层和驱动层是严格分离的。
+
+	(2)uboot中网卡驱动的工作方式简介
+		
+		1.uboot本身是一个裸机程序，没有驱动和应用的概念。但逻辑上理解，ping这样的命令实现的代码就是网络应用的应用层；dm9000.c和dm9000.h这样的代码属于驱动层。
+
+	(3)分析ping命令
+		
+		1.ping命令实现的函数是do_ping。位于common/cmd_net.c。
+		
+		2.分析函数：		
+			do_ping
+				Netloop，向目标发送包，如果收到回应，证明对方在线。
+					PingStart(448行)，设置超时时间。设置接收函数。
+						pingsend(796行)。发送包函数。
+							ArpRequest(764行)，地址解析协议。
+								eth_send(在DM9000x.c中)，调用网卡驱动。
+
+			a.可看出uboot应用程序(ping)调用驱动程序(DM9000x.c)的方式，这里是一种直接调用的方式。
+
+

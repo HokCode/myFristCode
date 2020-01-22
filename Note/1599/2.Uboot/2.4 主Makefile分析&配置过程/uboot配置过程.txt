@@ -1,0 +1,72 @@
+7.uboot配合过程详解1
+	
+	(1)mkconfig脚本的6个参数
+		
+		$(@:_config=) arm s5pc11x x210 samsung s5pc110
+
+		分析：
+			1.$(@:_config=)，把目标$@(x210_sd_config)中的_config替换为空得到x210_sd。
+
+			2.所以传的参数分别为：
+				$1：x210_sd
+				$2：arm
+				$3：s5pc11x
+				$4：x210
+				$5：samsung
+				$6：s5pc110
+				$# = 6
+	
+	(2)mkconfig的23行。BOARD_NAME，如果BOARD_NAME有值就维持不变；如果BOARD_NAME为空就给其赋值为$1(这里为x210_sd)。以上传参时BOARD_NAME值为空。
+
+	(3)mkconfig的25、26行。如果$#小于4或大于6，则exit 1(脚本返回1)。
+	
+	(4)mkconfig的33~118行。都在创造符号链接。这些符号链接文件(文件夹)的主要作用是给头文件包含等过程提供指向性连接。根本目的是让uboot具有可移植性。
+	
+		创建符号链接：
+			
+			第一个(46~48)：在include目录下创建asm文件，指向asm-$2。然后删除asm_$2下的arch。
+
+			第二个(53~57)：如果$6为空或等于NULL都不成立：在Include/asm-$2下创建一个arch文件，指向include/asm-$2/arch-$6。
+
+			第三个(84~86)：在include目录下创建regs.h文件，指向include/$6。
+
+			第四个(87~88)：删除第二个中的arch，重新创建arch文件，指向include/arch-$3。
+
+			第五个(107~110)：删除asm-$2下的proc，重新在asm-$2下创建proc文件，指向include/asm-$2/proc-armv。
+
+		总结：一共创建了4个符号链接：asm、arch、regs.h、proc。在将来写代码头文件包含时会用到，如：#include <asm/xx.h>，意思就是在asm-$2下的xx.h。
+
+8.uboot配合过程详解2
+	
+	(1)创建include/config.mk文件(mkconfig 123~129行)
+	
+	(2)以上创建的config.mk是为了让主Makefile在第133行去包含。
+
+	分析：在uboot的配置过程中定义主Makefile中要include的变量(文件)，可以让uboot移植更方便。
+
+	(3)mkconfig的134~141行：创建config.h文件(默认情况)/追加config.h文件(make -a时)。里面内容有：#include <configs/$1.h>，这是移植x210
+	开发板时对开发板的宏定义配置文件。
+
+	(4)$1.h(x210_sd.h)会被用来生成autoconfig.mk文件。
+
+	注意：
+		1.uboot的配置过程，很多文件之间有关联。
+		2.uboot中配置和编译过程，所有的文件或全局变量都是字符串形式(字符组成的序列)，所以uboot的配置过程都是字符串匹配的。
+
+9.uboot的链接脚本
+	
+	(1)与逻辑程序的脚本没有本质区别。
+	(2)ENTRY(_start)用来指定整个程序的入口地址，即整个程序的第一句指令。
+
+	(3)指定程序链接地址的2种方法:
+		
+		1.Makefile中ld的flags用-Ttext 0x20000000来指定。
+		2.在链接脚本的SECTIONS开头用.=0x20000000来指定。
+		
+		总结：两种技巧可以配合使用，第一种的以-Ttext指定的链接地址为准。	
+
+	(4)uboot的最终链接其实地址，来源于Makefile配置对应命令中，即TEXT_BASE。
+	
+	(5)在代码段(.text)中排列在前面的文件会被安排在前uboot的16KB。
+
+	(6)链接脚本中除了.text .data .rodata (read only) .bss段等编译工具自带的段外，还有程序员的自定义段，如：u_boot_cmd段。

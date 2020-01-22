@@ -1,0 +1,177 @@
+1.3
+	1.开发板刷(烧录、下载)系统
+		
+		(1)刷系统
+			
+			利用刷机工具，向开发板中烧录预先编译好的系统镜像，使之在开发板上运行起来。 
+		
+		(2)串口输出的意义(系统控制台)
+			
+			1.串口是一种硬件通信口，以前是CPU之间通信的主要接口。因为通信速度速度比较慢，所以使用串口主要用来做程序输出监控和调试。
+			
+			2.嵌入式一般是用串口来做控制台的。通过串口线把开发板和电脑连接起来，然后在电脑打开一个串口监视。这样开发板上的串口输出就可以在电脑上看到，电脑还可以通过监视终端向开发板输入一些控制命令。
+			
+			3.常用监视软件：
+			
+				Win：超级终端、SecureCRT
+				Linux：minicom
+			
+		(3)安装USB转串口线的驱动
+			
+			1.利用特殊线，在电脑上安装驱动。
+		
+			2.每次插的USB口要相同。
+		
+		(4)使用secureCRT
+			
+			可以用来观测开发板输出。
+			
+		(5)破坏iNand中的bootloader以从SD2启动
+			
+			在开发板的控制台输入
+			
+			
+				busybox dd if=/dev/zero of=/dev/block/mmcblk0 bs=512 seek=1 count=1 conv=sync
+				
+				sync
+								
+				
+			dd命令：用于写磁盘。
+				
+			if：输入设备
+				
+			of：输出设备
+				
+			bs=512：写的长度是512字节
+				
+			seek=1：写的是第一个扇区。
+
+			count=1：写的长度是一个扇区。
+
+			conv=sync：
+		
+			分析：把板载的iNand的第一个扇区用0来填充(相当于擦除)，这样我们板载的iNand的bootloader的第1个扇区就被破坏了。将来启动时iROM还是会先从iNand中读取前16KB，然后计算校验和会不通过，启动失败。然后会从SD2去执行2nd启动。
+		
+			破坏板载iNand的bootloader后，不插外部SD卡，启动串口得到：SD checksum Error
+		
+	2.制作启动SD卡(其实就是烧录uboot到SD卡中)
+		
+		(1)烧写SD卡
+		
+			有2种烧写方法：
+				
+				第1种：在windows中用刷卡工具去制作启动SD卡；
+				
+				第2种：在linux中用dd命令。
+			
+			第1种：用处烧录软件把uboot烧录到SD卡中，把SD卡插入SD2通道中。在uboot开机启动倒数3秒之内按回车打断，进入uboot的界面。
+		
+		(2)fastboot介绍
+			
+			fastboot是uboot中用来快速下载镜像的一个命令，也是windows上的一个软件。
+		
+			注意：
+				1.fastboot是使用USB线进行数据传输的，所以执行之前要先连接开发板和主机。
+		
+				2.需要安装驱动。
+		
+		(3)fastboot常用命令
+			
+			fastboot devices	命令用来查看当前连接的设备。
+			
+			fastboot flash xxx	命令用来烧录
+			
+			fastboot reboot 	命令用来重启系统
+			
+		(4)使用fastboot烧录Android4.0.4镜像
+			
+			在cmd下使用以下三个命令来完成烧录
+			
+			例:
+			
+				fastboot flash bootloader android4.0.4/uboot.bin		//烧uboot
+				
+				fastboot flash kernel android4.0.4/zImage-android		//烧linux kernel
+				
+				fastboot flash system android4.0.4/x210.img				//烧android rom
+				
+				android4.0.4为相对路径。
+			
+	3.开发板刷其他系统
+		
+		(1)烧录linux + QT
+		
+			fastboot flash bootloader qt4.8/uboot.bin		//烧uboot
+				
+			fastboot flash kernel qt4.8/zImage-qt	//烧linux kernel
+				
+			fastboot flash system qt4.8/rootfs_qt4.ext3			//烧rootfs		
+			
+			uboot的参数不同特意设置(因为刷了专为linux+QT定制的uboot，这个uboot中可能已经预制好了启动参数。)
+		
+		(2)烧录android2.3
+		
+			android2.3中使用了串口0，所以启动后要把串口插到串口0。	
+		
+		(3)烧录android4.0.4
+		
+			见上文。
+		
+	4.x210的dnw刷机
+		
+		(1)dwn刷机，即usb启动刷机，相对于sd卡刷机比较麻烦。
+		
+		(2)刷机步骤：
+			
+			1.安装dnw驱动，用usb线连接开发板和主机。
+			
+			2.先刷x210_usb.bin，地址是0xd0020010，这个文件里的代码会初始化DRAM。
+		
+			3.再刷uboot.bin，刷机地址是0x23e00000.
+		
+			4.这时串口有信息打来，3秒内按回车进入uboot模式。这时可松开开机键。
+				
+				输入fdisk -c 0
+				输入fastboot
+		
+			5.与刷其他系统步骤相同。
+		
+			6.输入 fastboot -w
+		
+	5.linux下使用dd命令刷写uboot
+		
+		(1)SD卡连接入linux中
+			
+			一个USB设备插到电脑后，要么可以再Windows中识别，要么在虚拟机linux中识别，不能同时。默认都是连接到windows中，所以linux是找不到的。
+			
+			所以需要设备连接到linux，需要在虚拟机软件中菜单选择。(需要USB读卡器)
+		
+			连接进linux中，在命令行中：ls /dev/sd*查看，通过对比就知道SD卡在linux中设备编号。
+		
+		(2)利用脚本文件 nand_fusing.sh 烧录SD卡。
+			
+			./nand_fusing.sh /dev/sdb	(sdb为sd卡在linux中的编号)
+		
+			然后就可以使用SD卡启动开发板了。
+		
+	6.linux下dnw软件的使用
+		
+		(1)在linux中安装dnw。
+		
+		(2)把开发板连接到linux底下
+			
+			方法类似SD卡连接。
+		
+			成功连接后：
+				
+				1.windows下设备管理器没了。
+				
+				2.linux中命令行输入 ls /dev/secbulk0  。
+		
+		(3)使用dnw进行下载uboot.bin
+			
+			1. dnw -a 0xd0020010 x210_usb.bin (初始化内存)
+		
+			2. dnw -a 0x23e00000 uboot.bin
+		
+	

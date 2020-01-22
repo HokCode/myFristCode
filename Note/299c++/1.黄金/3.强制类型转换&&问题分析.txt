@@ -1,0 +1,115 @@
+11.c++新型的类型转换方式
+	
+	(1)c方式强制类型转换缺陷
+		
+		1.任何类型之间都可进行转换，编译器很难判断其正确性。
+		
+		2.发生错误时很难定位函数中类型转换语句的位置。
+	
+	(2)c++的强制类型转换
+	
+		1.c++将强制类型转换分为4种类型
+		
+			static_cast
+			const_cast
+			dynamic_cast
+			reinterpret_cast		
+			用法：xxx_cast< Type >(Expression)
+	
+			static_cast
+				
+				1.用于基本类型间转换(int、double、float等)。
+				
+				2.不能用于基本类型指针间的转换。
+				
+				3.可用于有集成关系类对象之间的转换和类指针之间的转换。
+		
+			const_cast
+				
+				1.用于去除变量的只读属性。
+				
+				2.强制转换的目标类型必须是指针或引用。
+		
+			reinterpret_cast(重解释)
+				
+				1.用于指针类型间的强制转换。
+				
+				2.用于整数和指针类型间的强制转换。
+				
+			dynamic_cast
+				
+				1.用于有继承关系的类指针间的转换。
+				
+				2.用于有交叉关系的类指针间的转换。
+				
+				3.基友类型检查的功能。如果强制类型转换不成功，那么dynamic_cast会得到空指针。
+		
+				4.定的类中必须有虚函数。
+	
+		2.转换实例
+			
+			static_cast	
+		
+				int i = 0x12345;
+				char c = 'c';			
+				c = static_cast<char>(i);
+				
+				错误示范：不能用于基本类型指针间转换
+				int *pi = &i;
+				pc = static_cast<char*>(pi);
+				
+			const_cast
+				
+				const int& j = 1;
+				int& k = const_cast<int&>(j);
+				
+				const int x = 2;
+				int& y = const_cast<int&>(x);
+		
+				错误示范：目标必须是指针或引用
+				int z = const_cast<int>(x)
+		
+			reinterpret_cast
+				
+				int *pi = &i;
+				pc = reinterpret_cast<char*>(pi);
+		
+				int i = 0;
+				pi = reinterpret_cast<int*>(i);
+		
+				错误示范：只能是指针间、指针整数间转换
+				c = reinterpret_cast(char)(i);
+		
+			dynamic_cast
+				
+				关于类的指针间转换。
+			
+12.经典问题分析
+		
+	(1)关于const
+		
+		1.在初始化时，如果用volatile+const修饰变量a，那么变量a是一个只读变量，不是常量。
+		
+			volatile const int a = 1;
+		
+		2.在初始化时，如果用一个变量b给const变量a赋值，a是一个只读变量，不是常量。
+		
+			int b = 1;
+			const int a = b;
+		
+		3.在初始化时，如果用一个不同类型的变量c给const变量a赋值，那么a会变成一个与c无关的新只读变量。
+		
+			char c = 'c';
+			const int a = c;
+	
+	(2)关于引用
+		
+		1.引用时一段合法内存的别名，对其的操作(赋值、取址)都会传递到代表的变量上。
+		
+		2.引用必须在定义时初始化，之后无法代表其他变量。
+	
+		3.在c++编译器内部，使用指针常量来实现"引用"。
+	
+		4.c++中，不支持引用数组。因为破坏了c中数组的特性。
+	
+	

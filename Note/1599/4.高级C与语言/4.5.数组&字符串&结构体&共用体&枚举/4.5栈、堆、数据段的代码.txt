@@ -1,0 +1,24 @@
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+
+char a1[] = "linux";						//数据段
+
+int main(void)
+{	
+	char a2[] = "linux";					//栈
+	
+	char *p =(char*)malloc(sizeof(char)*5); //堆
+
+	memset(p, 0, 5);	
+	strcpy(p,"linux");
+	
+	printf("a1 = %s\n",a1);
+	printf("a2 = %s\n",a2);
+	printf("p  = %s\n",p);
+	
+	free(p);
+	
+	return 0;
+}
+

@@ -1,0 +1,55 @@
+#include<stdio.h>
+typedef int (*pType)(int, int);
+int jia(int a, int b);
+int jian(int a, int b);
+int cheng(int a, int b);
+int chu(int a, int b);
+
+int main(void)
+{
+	pType p1 = NULL; 
+	int a = 0,b = 0, res = 0;
+	char c = 0;
+	
+	printf("请输入需要运算的两个整数\n");
+	scanf("%d %d",&a,&b);
+	
+	printf("请输入你需要的运算：+ - * /\n");
+	do
+	{
+	scanf("%c",&c);
+	}while(c == '\n');
+	
+	switch(c)
+	{
+		case'+':p1 = jia;break;
+		case'-':p1 = jian;break;		
+		case'*':p1 = cheng;break;
+		case'/':p1 = chu;break;
+	}
+	
+	res = p1(a,b);
+	printf("%d %c %d = %d\n",a,c,b,res);
+	
+	return 0;
+}
+
+int jia(int a, int b)
+{
+	return a + b;
+}
+
+int jian(int a, int b)
+{
+	return a - b;
+}
+
+int cheng(int a, int b)
+{
+	return a * b;
+}
+
+int chu(int a, int b)
+{
+	return a / b;
+}

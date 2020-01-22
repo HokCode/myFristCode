@@ -1,0 +1,61 @@
+1.7
+	9.uart stdio的移植
+		
+		(1)stdio的定义
+			
+			#include<stdio.h>
+			
+			1.standard input output,标准输入输出。就是操作系统定义的默认的输入和输出通道。一般在PC机的情况下，标准输入是键盘，标准输出是屏幕。
+			
+			2.printf函数和scanf函数可以和底层输入/输出函数绑定，然后这两个函数就可以和stdio绑定起来。这样就可以直接调用printf函数输出。
+			
+		(2)printf函数的工作原理	
+
+			1.printf函数工作时，内部调用了2个关键函数：
+				
+				vsprintf：主要功能是格式化打印信息，最终得到纯字符串格式的打印信息，等待输出。
+				
+				putc：真正的输出函数(操控标准输出的硬件，将信息发送出去。)
+				
+		(3)移植printf函数
+			
+			1.在开发板上使用printf函数进行(串口)输出，使用scanf函数进行(串口)输入(类似PC机上的键盘和屏幕)。需要移植printf函数/scanf函数。
+			
+			2.三个途径获取printf的实现源码：
+				
+				(1)Linux内核中的printk。难度大，麻烦。
+				
+				(2)从uboot中移植pritnf。
+			
+				(3)直接使用移植好的printf。
+			
+		(4)makefile
+			
+			INCDIR	:= $(shell pwd)
+			
+			CPPFLAGS(预处理器)：-nostdlib(不用标准库) -nostdinc(不用标准头文件) -I$(INCDIR)/inlcude(指令include目录)
+			
+			CFLAGS：-Wall(报错) -O2(优化等级) -fno-builtin(编译时只用自己的东西)
+			
+			1.在移植后的uart stdio项目中添加link.lds链接脚本。
+			
+			
+		(5)printf函数
+			
+			1.printf函数中首先使用了C语言的可变参数 va_start/va_arg/va_end;
+			
+			2.vsprintf函数  
+				
+				printf
+					
+					vsprintf
+					
+						vsnprintf
+							
+							number(层层调用)
+			
+				分析：
+					vsprintf函数的作用是按照printf传进去的格式化标本，对变参进行处理，然后将之格式化后缓存在一个实现分配到的缓冲区中。
+			
+					然后调用putc函数将缓冲区中格式化好的字符串直接输出到标准输出。
+			

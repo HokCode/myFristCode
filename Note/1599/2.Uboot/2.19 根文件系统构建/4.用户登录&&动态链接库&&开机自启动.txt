@@ -1,0 +1,133 @@
+9.profile文件和用户登录理论
+	
+	(1)profile文件添加
+		
+		1.利用hostname定义了主机名称，要添加profile文件才可在命令行提示符/前显示主机名。
+
+		2.profile文件工作原理：被busybox(init)进程自动调用。
+
+	(2)用户登录界面
+		
+		1.linux中实现一个大功能会趋向于把大功能分成许多小程序，从而共同实现这个功能。如：根文件系统中的inittab。
+
+		2.inittab中的配置项::askfirst:-/bin/sh，会导致系统启动后执行/bin/sh，直接出现命令行。
+
+		3.所以如果要出现登录界面，就不能直接执行/bin.sh，应该执行一个负责出现登录界面和管理用户名和密码的程序：/bin/login和/sbin/getty。
+
+	(3)用户名和密码设置
+		
+		1.用户名和密码管理与登录程序有关。/bin/login和/sbin/getty在管理体系上是类似的。
+
+		2.密码一般使用加密文件，一般不用明文。系统中密码存储在一个专门的文件。
+
+10.用户登录实战
+	
+/bin/login：
+	
+	(1)添加::sysinit:/bin/login到inittab
+	
+		1.注销inittab中的配置项::askfirst:-/bin/sh。添加：::sysinit:/bin/login
+
+	(2)添加passwd和shadow文件
+		
+		1.用于描述用户名和密码的文件，位于etc目录下。
+
+		2.passwd存储用户的密码设置，shadow文件存储加密后的密码。使用ubuntu的passwd和shadow即可。
+
+			passwd格式：用户:口令:用户标识符:组标识符:注释性描述:主目录:登录shell
+
+		3.把ubuntu的对应文件复制到etc目录下，并删除无关用户。
+		
+		4.在shadow文件中可修改密码(密文)。如果加密口令为空，则启动后默认无密码直接登录。可通过命令修改密码：passwd root
+		
+	(3)出现错误信息:-sh: can't access tty
+		
+		1.tty是串口。在dev目录下寻找串口名，因为当前开发板用的是串口2,所以是s3c2410_serial2。
+
+		2.把s3c2410_serial2添加到之前添加的配置项中：
+			
+			s3c2410_serial2::sysinit:/bin/login
+
+/sbin/getty
+
+	(1)在etc/inittab中同一位置添加配置项：
+		
+		s3c2410_serial2::respawn:/sbin/getty -L s3c2410_serial2 115200 vt100		
+		vt100：串口界面的样式描述。
+
+		分析：添加后可实现同样的效果。
+
+11.拷贝动态链接库
+	
+	(1)静态编译链接helloword并运行
+	
+		1.C程序如果使用gcc编译就只可在ubuntu运行，用arm-linux-gcc交叉编译就只能在开发板编译。可用file命令查看elf文件的架构。
+		
+		静态链接：arm-linux-gcc hello.c -o hello_static -static
+
+		2.静态编译链接后生成的elf文件可在开发板直接成功运行。
+
+	(2)动态编译链接helloword并运行。
+
+		
+		动态链接：arm-linux-gcc hello.c -o hello_dynamic
+
+		1.程序无法运行，运行时提示找不到程序，即找不到库函数。当前运行环境(rootfs)中没有包含printf函数的库文件。
+		
+		2.操作系统的库文件一般会放在rootfs的lib中。所以应将arm-linux-gcc的动态链接库文件复制到开发板rootfs的/lib目录。
+			位于：/usr/local/arm/arm-2009q3/arm-none-linux-gnueabi/libc/lib/
+			
+		3.复制时只赋值*so*文件，在复制命令最后加-rdf，把符号链接也一起复制。这样可以把不是动态链接库的从文件过滤，节省空间。
+		
+		4.动态链接库so文件中会包含一些调试符号信息，为了节省空间可用strip工具把其去掉。去除符号命令：
+			
+			arm-linux-strip *so*
+		
+		注意：
+			1.如果需要其他一些交叉编译工具链中的动态链接库目录，可通过find -name "*libm.so*"命令寻找。
+
+			2.可通过du -h xx命令测试文件大小，看到静态链接与动态链接的区别。
+
+12.开机自启动与主流rcS格式介绍
+	
+	(1)修改rcS实现开机自启动
+		
+		1.自启动是指让一些应用程序可以开机后自动执行。
+		
+		2.原理：在脚本rcS中添加对应程序执行的代码即可。例子：
+
+			cd /root
+			./hello
+			cd /
+
+	(2)前台运行与后台运行
+		
+		前台运行：程序运行时占用了当前控制台。默认执行程序都是前台运行。
+		
+		后台运行：程序运行时让出控制台，还不影响当前控制台使用。在运行命令后加符号&：./hello &
+		
+	(3)开机装载驱动等其他开机运行
+		
+		rcS添加对应命令。
+		
+	(4)实际开发中rootfs的rcS
+		
+		在inittab中：
+			
+		1.sysinit执行rcS：遍历执行etc/init.d目录下S开头的脚本文件，并向其传递参数start。
+		
+		2.shutdown执行rcK：遍历执行etc/init.d目录下S开头的脚本文件，并向其传递参数stop。
+			
+		3.所以真正起作用的是/etc/ini.d/S??*文件。判断接收到的参数是start还是stop。
+
+13.	制作ext2格式的镜像并烧录启动
+	
+	(1)确认根文件没有错误。
+
+	(2)制作ext2格式的镜像
+
+		1.用之前方式制作根文件系统镜像。
+		
+		2.把rootfs的内容复制到新挂载的文件中。
+
+

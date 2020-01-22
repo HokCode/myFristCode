@@ -1,0 +1,92 @@
+1.fastboot的基本分析
+	
+	(1)fastboot定义
+		
+		1.android系统使用的刷机方法有两种，一种是fastboot(线刷)；一种是recovery(卡刷)。
+
+		2.fastboot使用usb作为物理传输。刷机的本质是镜像传输和烧录，fastboot是通过usb线来传输镜像的。
+		
+		3.fastboot是uboot中的一个命令。位于common/cmd_fastboot.c，与其他普通命令相同。
+		
+		4.fastboot需要主机端的fastboot.exe软件配合。
+
+		5.fastboot在开发板和主机间定义了一套协议。这套协议以usb为底层传输物理层，规定了主机fastboot软件和开发板fastboot软件之间的信息传输规则。主机可以向开发板发送命令或文件(download)，开发板可以回复。
+
+	(2)fastboot的工作原理
+		
+		1.uboot的fastboot命令将开发板伪装成一个usb从设备，伪装后被主机windows识别成一个安卓手机。
+	
+		2.主机的fastboot软件和开发板的fastboot程序通过通信来工作。。开发端只要执行了fastboot命令进入fastboot模式即可；主机通过fastboot命令传递不同的参数来实现主机端和开发板端的通信。
+
+		比如：
+			主机端执行fastboot devices命令。
+			命令通过USB传递到开发板的fastboot程序接收并处理，然后想主机端发送反馈信息。
+			
+	(3)MBR分区
+		
+		1.一般位于各种存储类设备(iNand、SD)的扇区0。用于描述整个磁盘上的分区信息。所以扇区0不可用(如SD卡的block0)。
+		
+		2.在uboot中输入fdisk -c 0命令，进行MBR分区。
+			
+
+2.uboot的fastboot代码分析1
+	
+	(1)do_fastboot函数
+		
+		1.函数本身设计到很多操作SD/Nand等磁盘，目的是为了刷机。
+
+	(2)关键点：rx_handler(顺藤摸瓜一路找)
+
+	do_fastboot
+		fastboot_poll
+			fboot_usb_int_hndlr处理USB中断
+				RX_FIFO_NOT_EMPTY(判断FIFO非空)，调用fboot_usb_pkt_receive接收
+					fboot_usb_int_bulkout(bulk传输模式，大批量传输模式)	
+						fboot_usb_read_out_fifo(读出fifo中的内容)
+						fastboot_interface->rx_handler(函数指针)
+		
+		1.uboot中的fastboot是通过rx_handler函数来处理主机端fastboot软件发送来的信息的。fastboot协议的命令实现都依赖于rx_handler函数。
+		1.uboot中的fastboot是通过rx_handler函数来处理主机端fastboot软件发送来的信息的。fastboot协议的命令实现都依赖于rx_handler函数。
+
+	(3)rx_handler函数分析
+		
+		1.单文件download机制
+
+			a.函数中通过if和else分成两部分，if部分负责处理download；else部分负责处理命令。usb传输只能单次传输有限个字节(64、256)。
+ 
+			b.发送较大的数据(文件)时，需要分包发送。
+
+		fastboot_tx_status函数			
+			给主机发送开发板的状态信息。(主机显示的ERROR/OKAY)
+
+		LCD_setprogress(0)
+			设置LCD显示。(进度条)
+
+3.uboot的fastboot代码分析2——命令代码
+	
+	(1)uboot中fastboot有关的一些宏定义设置值(位于x210_sd.h中)
+		
+	CFG_FASTBOOT_TRANSFER_BUFFER(624行)
+		配置fastboot工作时的缓冲区，供其执行某些功能(下载)时使用。
+		
+	CFG_FASTBOOT_TRANSFER_BUFFER_SIZE(625行)
+		fastboot缓冲区大小。X210是11000000(256+16=272M)。
+	
+	CFG_FASTBOOT_ADDR_KERNEL
+		下载Kernel的地址
+		
+	分析命令：
+	
+		fastboot reboot：
+			在PC机上远程重启开发板。
+		
+		fastboot getvar (version/product..)
+			获取环境变量。
+	
+		fastboot erase
+			擦除命令
+			
+		fastboot oem
+			oem是用户自定义的命令。oem厂商是指拿其他人代码做产品的厂商，如华为：用谷歌的安卓做手机。
+
+

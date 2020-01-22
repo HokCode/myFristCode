@@ -1,0 +1,95 @@
+11.start_armboot解析9
+	
+	(1)#ifndef CFG_NO_FLASH	(第489行)
+		
+		1.一般NandFlash简称为nand；一般Norflash简称为Flash。
+
+		2.所以这个函数是与Norflash相关的。flash_init执行的是开发板中对应的NorFlash的初始化、display_flash_config执行的是打印NorFlash相关信息。
+			
+			size = flash_init ();
+			display_flash_config (size);
+		
+		3.实际上X210中是没有NorFlash的，但是去掉会影响编译，所以移植的时候不能去掉。
+
+	(2)CONFIG_VFD(第495行)和ONFIG_LCD(508行)
+			
+		1.这是uboot自带的LCD显示的软件架构。
+		
+		2.但这里没有被使用，在后面有添加的LCD显示部分。
+
+	(3)mem_malloc_init函数(第526行)	
+
+		1.用来初始化uboot的堆管理器。
+		
+		2.uboot中维护了一段堆内存，所以需要一套代码来管理堆内存。这样程序员就可以用malloc、free这套机制来申请或释放内存。
+		
+		3.内存中给堆预留了896KB的内存。
+
+12.start_armboot解析10
+	
+	(1)开发板独有初始化：mmc初始化
+		
+		1.从536~768行为开发板独有的初始化，不同开发板把各自的初始化代码写在了这里，所以一套uboot满足了各种系列型号开发板的需求。
+	
+		2.X210的初始化代码在599~632行。
+	
+		3.mmc_initialize(第603行)函数用于初始化SoC内部的SD/MCC控制器，位置在uboot/drivers/mmc/mmc.c。
+		
+		4.其实mmc_initialize会被所有调用这套架构的代码调用来完成MMC的初始化，在函数中会再调用board_mmc_init和cpu_mmc_init。
+		
+			if (board_mmc_init(bis) < 0)//外部集成了SD控制器>0
+				cpu_mmc_init(bis);		//内部已有SD控制器。
+	
+		5.cpu_mmc_init在uboot/cpu/s5pc11x/cpu.c中，此函数内间接调用了drives/mmc/s3c_mmcxxx.c中的驱动代码来初始化硬件MMC控制器。
+		6.uboot中对硬件的操作(网卡、SD卡)都是借用linux内核中的驱动来实现的。uboot根目录底下的drivers文件夹全都是从linux内核中移植过来的驱动源文件。
+	
+13.start_armboot解析11	
+	
+	(1)env_relocate
+		
+		1.环境变量重定位，完成从SD卡中将环境变量读取到DDR中的任务。
+	 
+		2.函数中ENV_IS_EMBEDDED宏没有被定义。执行：
+			
+			(254行)env_ptr = (env_t *)malloc (CFG_ENV_SIZE);
+	
+		3.SD卡中有一些(8个)独立的扇区存储环境变量。但烧录时只烧录了uboot、kernel、rootfs三个分区，所以烧录完第一次启动ENV分区是空的。这时uboot选择拿内部代码中设置的一套默认的环境变量来使用。
+		
+		4.这套默认的环境变量会被读取到DDR的环境变量中，然后被写入SD卡的ENV分区(在saveenv时写入或在第一次读取默认变量后就写入)。然后下次开机时uboot就会从SD卡的ENV分区读取环境变量到DDR。
+		
+		5.(268行)env_relocate_spec函数负责完成从SD卡到DDR中重定位ENV代码的工作。
+		
+14.start_armboot解析12
+
+	(1)IP地址、MAC地址的确定(第787行)
+		
+		IP地址：
+		
+		gd->bd->bi_ip_addr = getenv_IPaddr ("ipaddr");
+
+		1.开发版的IP地址是在gd->bd中维护的，来源于环境变量。
+
+		2.IP地址是由4个0~255之间的数字组成，因此一个IP在程序中最简单的存储方法就是一个unsigned_int。
+		
+		3.getenv_IPaddr函数中用getenv函数调用出unsigned_int类型的IP地址，再用string_to_ip转成点分十进制数(如：192.168.1.1)。
+
+		MAC地址(应用编程、网络编程)：
+				
+			
+		1.MAC地址的获取方式与IP地址相同，环境变量名为ethaddr。
+		
+		2.由6位0~255的数字组成(ethaddr=00:40:5c:26:0a:5b)。最早来自于默认的环境变量。
+
+	(2)devices_init(第818行)
+		
+		1.开发板上的硬件设备初始化。在这里初始化的设备都是驱动设备，这个函数是从驱动框架中衍生出来的。uboot中很多设备的驱动是直接移植linux内核的，如：网卡、SD卡。
+		
+		2.linux内核在启动过程中有一个devices_init(名字不一定相同)，作用集中执行各种硬件驱动的init函数。
+		
+		3.在许多硬件设备在前面的代码已经初始化完毕，所以这个函数的工作量比较少。
+	
+	(3)jumptable_init(第824行)
+
+		1.跳转表。本身是一个函数指针数组，里面记录了很多函数名(即函数指针)。但通过分析发现此跳转表在uboot中只是被赋值，没有被引用。
+
+

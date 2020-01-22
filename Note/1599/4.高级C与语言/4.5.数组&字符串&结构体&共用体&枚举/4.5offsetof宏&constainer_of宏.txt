@@ -1,0 +1,90 @@
+	11.offsetof宏与container_of宏
+		
+		(1)结构体是通过指针方式来访问的，形式上同过.的方式来访问 (其实是编译器帮我们自动计算了偏移量)。
+				
+		(2)offsetof宏
+			
+			1.作用：计算结构体某个元素相对于结构体首元素的偏移量(实质是通过编译器计算)。
+							
+			2.原理
+				
+				虚拟一个type类型结构体变量，然后同type.member来访问这个member元素，继而得到member相对于整个变量首地址的偏移量。
+				
+			3.用法
+			
+				#define offsetof(type, member) ((int) &((type *)0)->member)
+				(注意：&是取址，不是与)
+				
+				type:	结构体类型
+				member:	结构体成员	
+				
+				例子：	
+					struct mystruct
+					{
+						char a;
+						int b;
+						short c;
+					}
+				
+				offsetof(struct mystruct, a) = 0;	
+				offsetof(struct mystruct, b) = 4;
+				offsetof(struct mystruct, c) = 8;
+				
+			4.解析
+							
+				(type *)0
+				把0地址强制类型转换成一个指针，指针指向一个type类型结构体变量(实际上这个结构体变量可能不存在，不解引用就没事)。
+				
+				((type *)0)->member	
+				通过上面得到的指针(type *)0访问结构体元素member。
+				
+				&((type *)0)->member
+				等效于 &(((type *)0)->member)。得到member元素的地址。
+				
+				(int) &((type *)0)->member
+				最后把得到的地址强制类型转换为整形。(member地址减去首地址得到偏移量，因为首地址是0，所以不需要减了。)
+				
+				相当于 
+				
+				struct mystruct s1;
+				元素b的偏移量：(int)&(s1.b) - (int)&s1;
+				
+		(3)container_of宏
+			
+			1.作用：知道一个结构体中某个元素的指针，反推结构体变量的指针。继而可以推算出结构体其他元素的指针。
+				
+				
+			#define container_of(ptr, type, member) ({const typeof(((type *)0)->member) * __mptr = (ptr);(type *)((char *)__mptr - offsetof(type, member)); }) 
+				
+			ptr是指向结构体元素member的指针。	
+				
+			
+			2.原理
+				
+				typeof关键字：typeof(a)时由变量a得到a的类型。即有变量名得到变量的数据类型。
+				
+				const typeof(((type *)0)->member) * __mptr = (ptr)
+				先用typeof得到member元素的类型，再用这个类型定义一个指针(__mptr)。
+				
+				(type *)((char *)__mptr - offsetof(type, member))
+				再用这个指针(__mptr)减去这个元素相对于整个结构体的偏移量(偏移量可用offsetof宏得到)。最后再把这个地址强制类型转换为(type *)类。
+				
+			3.用法
+				#define container_of(ptr, type, member) ({const typeof(((type *)0)->member) * __mptr = (ptr);(type *)((char *)__mptr - offsetof(type, member)); }) 
+				
+				struct mystruct
+					{
+						char a;
+						int b;
+						short c;
+					};
+				int main(void)
+				{
+					struct mystruct s1;
+					
+					int *p = &(s1.b);
+					container_of(p, struct mystruct, b)	
+				
+					return 0;
+				}
+				
