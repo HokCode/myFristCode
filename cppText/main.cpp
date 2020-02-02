@@ -7,6 +7,13 @@
 #include "Array.h"
 #include "SmartPoint.h"
 #include "dynamicArray.h"
+#include "LinkList.h"
+#include "Exception.h"
+#include "SharePoint.h"
+#include "CircleList.h"
+#include "DualLinkList.h"
+#include "LinuxList.h"
+#include "DualCircleList.h"
 
 using namespace std;
 
@@ -29,9 +36,9 @@ public:
 class Test
 {
 public:
-	Test(const char* name)
+	Test()
 	{
-		cout << name << "Test()" << endl;
+		cout << "Test()" << endl;
 	}
 	void print()
 	{
@@ -43,33 +50,46 @@ public:
 	}
 };
 
+void func()
+{
+	CircleList<int> l;
+
+	for(int i=1; i<=41; i++)
+	{
+		l.insert(i);
+	}
+
+	l.move(0, 2);
+
+	while(l.length())
+	{
+		l.next();
+		cout << l.current() << endl;
+		//cout << l.find(l.current()) << endl;
+		l.remove(l.find(l.current()));
+	}
+
+	cout << "len: " << l.length() << endl;
+}
+
+
+
 int main()
 {
-	staticArray<int, 5> l;
-	for(int i=0; i < l.length(); i++)
+	struct Node
 	{
-		l.set(i, i * i);
-	}
-	for(int i=0; i < l.length(); i++)
-	{
-		cout << l[i] << endl;
-	}
+		list_head head;
+		int value;
+	};
 
-	cout << endl;
+	Node node;
+	list_head* pt = &node.head;
 
-	staticArray<int, 5> m;
-	for(int i=0; i < m.length(); i++)
-	{
-		m.set(i, i);
-	}
-	for(int i=0; i < m.length(); i++)
-	{
-		cout << m[i] << endl;
-	}
+	Node* pt1 = reinterpret_cast<Node*>(pt);
+	Node* pt2 = list_entry(pt, Node, head);
 
-	char reversed[16];
-
-	cout << ">>>" << sizeof(reversed) << endl;
+	cout << pt1 << endl;
+	cout << pt2 << endl;
 
 	// cout << "File:	" << __FILE__;
 	// cout << "Line:	" << __LINE__;

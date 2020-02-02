@@ -1,76 +1,44 @@
 #ifndef _SMARTPOINT_H_
 #define _SMARTPOINT_H_
 
+#include "Pointer.h"
+
 template
 <typename T>
-class SmartPoint
+class SmartPoint : public Pointer<T>
 {
-	T* mp;
+
 public:
-	SmartPoint(T* p);
-	SmartPoint(const SmartPoint<T>& obj);
-	SmartPoint<T>& operator = (SmartPoint<T>& obj);
-	T* operator ->();
-	T& operator * ();
-	T* get();
-	~SmartPoint();
-};
-
-template
-<typename T>
-SmartPoint<T>::SmartPoint(T* p)
-{
-	mp = p;
-}
-
-template
-<typename T>
-SmartPoint<T>::SmartPoint(const SmartPoint<T>& obj)
-{
-	mp = obj.mp;
-	const_cast<SmartPoint<T>&>(obj).mp = NULL;
-}
-
-template
-<typename T>
-SmartPoint<T>& SmartPoint<T>::operator = (SmartPoint<T>& obj)
-{
-	if(&obj != this)
+	SmartPoint(T* pn) : Pointer<T>(pn)
 	{
-		delete mp;
-		mp = obj.mp;
-		const_cast<SmartPoint<T>&>(obj).mp = NULL;
+
 	}
-	return *this;
-}
 
-template
-<typename T>
-T* SmartPoint<T>::operator ->()
-{
-	return mp;
-}
+	SmartPoint(const SmartPoint<T>& obj)
+	{
+		this->m_pointer = obj.m_pointer;
+		const_cast<SmartPoint<T>&>(obj).m_pointer = NULL;
+	}
 
-template
-<typename T>
-T& SmartPoint<T>::operator * ()
-{
-	return *mp;
-}
+	SmartPoint<T>& operator = (const SmartPoint<T>& obj)
+	{
+		if( this != &obj )
+		{
+			T* tmp = this->m_pointer;
+			this->m_pointer = obj.m_pointer;
+			const_cast<SmartPoint<T>&>(obj).m_pointer = NULL;
 
-template
-<typename T>
-T* SmartPoint<T>::get()
-{
-	return mp;
-}
+			delete tmp;
+		}
 
-template
-<typename T>
-SmartPoint<T>::~SmartPoint()
-{
-	delete mp;
-}
+		return *this;
+	}
+
+	~SmartPoint()
+	{
+		delete this->m_pointer;
+	}
+};
 
 
 #endif
