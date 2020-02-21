@@ -5,18 +5,18 @@
 
 template
 <typename T>
-class dynamicArray : public Array<T>
+class DynamicArray : public Array<T>
 {
 protected:
 	int m_length;
 public:
-	dynamicArray(int capacity)
+	DynamicArray(int capacity)
 	{
 		this->m_array = new T[capacity];
 
 		if( this->m_array != NULL)
 		{
-			this->length = capacity;
+			this->m_length = capacity;
 		}
 		else
 		{
@@ -24,7 +24,26 @@ public:
 		}
 	}
 
-	T& operator =  (const dynamicArray<T>& obj)
+	DynamicArray(const DynamicArray<T>& obj)
+	{
+		this->m_array = new T[obj.m_length];
+
+		if(  this->m_array != NULL)
+		{
+			this->m_length = obj.m_length;
+
+			for (int i=0; i<obj.m_length; i++)
+			{
+				this->m_array[i] = obj.m_array[i];
+			}
+		}
+		else
+		{
+
+		}
+	}
+
+	T& operator =  (const DynamicArray<T>& obj)
 	{
 		T* array = new T[obj.length()];
 
@@ -49,12 +68,37 @@ public:
 		}
 	}
 
-	int length()
+	int length() const
 	{
 		return m_length;
 	}
 
-	~dynamicArray()
+	void resize(int length)
+	{
+		if( length != m_length )
+		{
+			T* array = new T[length];
+
+			if( array != NULL )
+			{
+				int size = (length < m_length) ? length : m_length;
+				for(int i=0; i<size; i++)
+				{
+					array[i] = this->m_array[i];
+				}
+
+				T* tmp = this->m_array;
+				this->m_array = array;
+				delete tmp;
+			}
+			else
+			{
+
+			}
+		}
+	}
+
+	~DynamicArray()
 	{
 		delete[] this->m_array;
 	}

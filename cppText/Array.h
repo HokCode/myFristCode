@@ -30,7 +30,7 @@ public:
 
 	bool get(int index, T& value)
 	{
-		bool ret = ((0 <= index) && (index < this->capacity()));
+		bool ret = ((0 <= index) && (index < this->length()));
 		
 		if( ret )
 		{
@@ -54,7 +54,7 @@ public:
 		return (const_cast<Array<T>&>(*this)[index]);
 	}
 
-	virtual int length() = 0;
+	virtual int length() const = 0;
 };
 
 

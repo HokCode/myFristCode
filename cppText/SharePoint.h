@@ -14,10 +14,11 @@ protected:
 
 public:
 	SharePoint(T* pn = NULL) : ref(NULL)
-	{
+	{		
 		if( pn )
 		{
-			this->ref = new(int);
+			// this->ref = static_cast<int*>(malloc(sizeof(int)));
+			ref = new (int);
 
 			if( this->ref )
 			{
@@ -26,8 +27,7 @@ public:
 			}
 			else
 			{
-				//THROW_EXCEPTION(Exception)
-				cout << "no enough memory..." << endl;
+				// cout << "no enough memory..." << endl;
 			}
 		}
 		// ref = new (int);
@@ -81,6 +81,8 @@ public:
 			(*tmp_ref)--;
 			if( *tmp_ref == 0 )
 			{
+				// free(tmp_ref);
+
 				delete tmp_ref;
 				delete tmp_point;
 			}
@@ -89,17 +91,18 @@ public:
 
 	~SharePoint()
 	{
-		T* tmp_point = this->m_pointer;
-		int* tmp_ref = this->ref;
+		clear();
+		// T* tmp_point = this->m_pointer;
+		// int* tmp_ref = this->ref;
 
-		if( tmp_ref )
-		{
-			(*tmp_ref)--;
-			if( *tmp_ref == 0 )
-			{
-				delete tmp_point;
-			}
-		}
+		// if( tmp_ref )
+		// {
+		// 	(*tmp_ref)--;
+		// 	if( *tmp_ref == 0 )
+		// 	{
+		// 		delete tmp_point;
+		// 	}
+		// }
 	}
 
 };

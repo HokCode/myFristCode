@@ -17,7 +17,7 @@ public:
 		return m_pointer;
 	}
 
-	T operator * ()
+	T& operator * ()	//T&引用返回本身，T会复制一份返回
 	{
 		return *m_pointer;
 	}

@@ -216,6 +216,25 @@ public:
 		return (oneStep == this->m_step);
 	}
 
+	virtual int find(T value)
+	{
+		int ret = -1;
+		Node* current = m_head.next;
+
+		for(int i=0; i<m_length; i++)
+		{
+			if(current->value == value)
+			{
+				ret = i;
+				break;
+			}
+
+			current = current->next;
+		}
+
+		return ret;
+	}
+
 	~LinkList()
 	{
 		clear();
