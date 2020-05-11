@@ -86,3 +86,32 @@ BeautifulSoup
 		标签内字符串的注释部分
 
 '''
+
+BeautifulSoup标签树遍历:
+
+下行遍历（遍历子节点标签）：
+	.content
+		将<tag>所有儿子节点存入列表
+	.children
+		子节点迭代类型，与.contents类似，用于循环遍历儿子节点
+	.descendants
+		子孙节点的迭代类型，包含所有子孙节点，用于循环遍历
+
+上行遍历（遍历父节点标签）：
+	.parent
+		返回节点父亲标签
+	.parents
+		返回先辈标签的迭代类型，用于循环遍历先辈标签
+ 	
+ 	最高级标签的父亲是自己
+
+平行遍历（返回同一父节点下，同一层级标签）：
+	.next_sibling
+		返回下一个平行节点标签
+	.next_siblings
+		返回后续平行节点标签的迭代类型
+
+	.previous_sibling
+		返回上一个平行节点标签
+	.previous_siblings
+		返回前续平行节点标签的迭代类型
