@@ -47,7 +47,7 @@ public:
 
 	bool insert(const T& e)
 	{
-		this->insert(this->m_length, e);
+		return this->insert(this->m_length, e);
 	}
 
 	bool insert(int i, const T& e)

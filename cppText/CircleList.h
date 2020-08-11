@@ -15,7 +15,7 @@ protected:
 		return this->position(this->m_length-1)->next;
 	}
 
-	bool last_to_first()
+	void last_to_first()
 	{
 		last()->next = this->m_head.next;
 	}
@@ -28,7 +28,7 @@ protected:
 public:
 	bool insert(const T& e)
 	{
-		this->insert(this->m_length, e);
+		return this->insert(this->m_length, e);
 	}
 
 	bool insert(int i, const T& e)
@@ -98,7 +98,7 @@ public:
 
 	bool set(int i, const T& e)
 	{
-
+		return LinkList<T>::set(mod(i));
 	}
 
 	T get(int i) const

@@ -331,6 +331,8 @@ public:
 				m_queue.add(node->child.current());
 			}
 		}
+
+		return ret;
 	}
 
 	GTreeNode<T>* current()

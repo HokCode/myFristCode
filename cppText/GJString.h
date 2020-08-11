@@ -130,6 +130,8 @@ public:
 	{
 		s = s ? s : "";
 		init(s);
+
+		return *this;
 	}
 
 	char& operator [] (int i)
@@ -203,6 +205,8 @@ public:
 		{
 
 		}
+
+		return ret;
 	}
 
 	String sub(int i, int len)
@@ -285,6 +289,8 @@ public:
 			m_str[n] = '\0';
 			m_length = n;
 		}
+
+		return *this;
 	}
 
 	String& remove(const char* s)
@@ -316,6 +322,8 @@ public:
 			remove(t);
 			insert(i, l);
 		}
+
+		return *this;
 	}
 
 	String& replace(const String& s, const String& l)
